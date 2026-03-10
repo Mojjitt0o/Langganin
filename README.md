@@ -1,4 +1,4 @@
-# Warung Rebahan Shop 🛍️
+# Langganin 🛍️
 
 Website integrasi dengan Warung Rebahan API untuk penjualan produk digital dengan sistem markup otomatis dan tracking profit.
 
