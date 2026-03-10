@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="ord_title">Pesanan — Langganin</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" type="image/png" href="/images/logo.png" />
+  <script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);var l=localStorage.getItem('lang');if(l)document.documentElement.setAttribute('lang',l);})()</script>
+  <style>
+    /* ===== Mobile card layout for orders ===== */
+    .order-cards { display: none; }
+
+    @media (max-width: 768px) {
+      .table-wrap { display: none !important; }
+      .order-cards { display: flex; flex-direction: column; gap: 0.75rem; }
+      .order-card {
+        background: var(--bg2); border: 1px solid var(--border);
+        border-radius: 12px; padding: 1rem; box-shadow: var(--shadow);
+      }
+      .order-card-top {
+        display: flex; justify-content: space-between; align-items: flex-start;
+        margin-bottom: 0.6rem; gap: 0.5rem;
+      }
+      .order-card-product {
+        font-weight: 700; font-size: 0.88rem; color: var(--text);
+        flex: 1; min-width: 0;
+      }
+      .order-card-product .variant { font-size: 0.75rem; color: var(--text-muted); font-weight: 400; }
+      .order-card-product .user { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+      .order-card-row {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 0.3rem 0; font-size: 0.82rem;
+      }
+      .order-card-row .label { color: var(--text-muted); }
+      .order-card-row .value { font-weight: 600; }
+      .order-card-actions {
+        display: flex; gap: 0.5rem; margin-top: 0.65rem; flex-wrap: wrap;
+      }
+      .order-card-actions .btn { flex: 1; min-width: 0; font-size: 0.82rem; }
+      .order-card .hint { font-size: 0.72rem; margin-top: 0.35rem; }
+      .page-header.d-flex { flex-direction: column; align-items: stretch !important; }
+      .page-header h1 { font-size: 1.3rem !important; }
+      .stats-row .stat-card { padding: 0.85rem; }
+      .stats-row .stat-value { font-size: 1.35rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a href="/" class="navbar-brand"><img src="/images/logo.png" alt="Langganin" style="height: 28px; width: auto; margin-right: 0.5rem; vertical-align: middle;"> <em>Langganin</em></a>
+  <div class="navbar-menu" id="navMenu">
+    <a href="/products" data-i18n="nav_products">Produk</a>
+    <a href="/orders" class="active" data-i18n="nav_orders">Pesanan</a>
+    <a href="/balance" data-i18n="nav_balance">Saldo</a>
+    <span class="nav-balance" id="navBalanceVal">Rp 0</span>
+    <a href="/affiliate" id="navAffiliate" data-i18n="nav_affiliate">🤝 Affiliate</a>
+    <a href="/admin" id="navAdmin" style="display:none" class="badge badge-purple" data-i18n="nav_admin">Admin</a>
+    <a href="/login"    id="navLogin"  class="btn btn-primary btn-sm" style="display:none" data-i18n="nav_login">Masuk</a>
+    <a href="/register" id="navReg"    class="btn btn-outline btn-sm" style="display:none" data-i18n="nav_register">Daftar</a>
+    <button class="btn btn-sm btn-danger" id="navLogout" onclick="logout()" data-i18n="nav_logout">Keluar</button>
+  </div>
+  <button class="nav-toggle" id="navToggle" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- MAIN -->
+<main class="page">
+  <div class="container">
+    <div class="page-header d-flex ai-center jc-between" style="flex-wrap:wrap; gap:1rem;">
+      <div>
+        <h1 style="font-weight:800; letter-spacing:-0.03em;" data-i18n="ord_heading">Riwayat Pesanan</h1>
+        <p style="color:var(--muted); margin-top:0.25rem; font-size:0.88rem;" data-i18n="ord_subtitle">Semua order yang pernah kamu buat.</p>
+      </div>
+      <div style="display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;">
+        <select class="form-input" id="statusFilter" style="width:auto;" onchange="filterOrders()">
+          <option value="all" data-i18n="ord_filter_all">Semua Status</option>
+          <option value="processing" data-i18n="ord_filter_processing">Diproses</option>
+          <option value="success" data-i18n="ord_filter_success">Sukses</option>
+          <option value="done" data-i18n="ord_filter_done">Selesai</option>
+          <option value="completed" data-i18n="ord_filter_completed">Completed</option>
+          <option value="failed" data-i18n="ord_filter_failed">Gagal</option>
+        </select>
+        <a href="/products" class="btn btn-primary btn-sm" data-i18n="ord_buy_again">+ Beli Lagi</a>
+      </div>
+    </div>
+
+    <!-- Stat mini -->
+    <div class="stats-row" id="orderStats" style="margin-bottom:1.75rem; display:none;">
+      <div class="stat-card">
+        <div class="stat-label" data-i18n="ord_stat_total">Total Order</div>
+        <div class="stat-value purple" id="stTotal">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label" data-i18n="ord_stat_success">Berhasil</div>
+        <div class="stat-value green" id="stSuccess">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label" data-i18n="ord_stat_spent">Total Bayar</div>
+        <div class="stat-value blue" id="stSpent">Rp 0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label" data-i18n="ord_stat_processing">Diproses</div>
+        <div class="stat-value yellow" id="stPending">0</div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-wrap" id="loadWrap">
+      <div class="spinner"></div>
+      <span data-i18n="ord_loading">Memuat pesanan...</span>
+    </div>
+
+    <!-- Error -->
+    <div id="errorMsg" class="alert alert-danger" style="display:none;"></div>
+
+    <!-- Table (desktop) -->
+    <div class="table-wrap" id="tableWrap" style="display:none;">
+      <table>
+        <thead>
+          <tr>
+            <th data-i18n="ord_col_id">Order ID</th>
+            <th data-i18n="ord_col_product">Produk</th>
+            <th data-i18n="ord_col_qty">Qty</th>
+            <th data-i18n="ord_col_total">Total Bayar</th>
+            <th id="thProfit" style="display:none;" data-i18n="ord_col_profit">Profit</th>
+            <th data-i18n="ord_col_status">Status</th>
+            <th data-i18n="ord_col_date">Tanggal</th>
+            <th id="thWA" style="display:none;" data-i18n="ord_col_wa">WhatsApp</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="ordersTbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Cards (mobile) -->
+    <div class="order-cards" id="orderCards"></div>
+
+    <!-- Empty -->
+    <div class="empty-state" id="emptyState" style="display:none;">
+      <div class="e-icon">🛒</div>
+      <h3 data-i18n="ord_empty">Belum ada pesanan</h3>
+      <p data-i18n="ord_empty_d">Mulai belanja produk digital favoritmu sekarang.</p>
+      <a href="/products" class="btn btn-primary" data-i18n="ord_view_products">Lihat Produk →</a>
+    </div>
+  </div>
+</main>
+
+<!-- Detail Modal -->
+<div class="modal" id="detailModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 data-i18n="ord_detail_title">Detail Pesanan</h3>
+      <button class="modal-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="modal-body" id="detailBody"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const token = localStorage.getItem('token');
+  if (!token) { window.location.href = '/login'; }
+
+  let allOrders = [];
+  let isAdmin   = false;
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    document.getElementById('navToggle').addEventListener('click', () => {
+      document.getElementById('navMenu').classList.toggle('open');
+    });
+    document.querySelectorAll('#navMenu a').forEach(link => {
+      link.addEventListener('click', () => {
+        document.getElementById('navMenu').classList.remove('open');
+      });
+    });
+    // Tunggu profile selesai dulu (butuh isAdmin sebelum render tabel)
+    await loadProfile();
+    loadOrders();
+  });
+
+  async function loadProfile() {
+    try {
+      const r = await fetch('/api/auth/profile', { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      if (d.success) {
+        document.getElementById('navBalanceVal').textContent = 'Rp ' + Number(d.data.balance).toLocaleString('id-ID');
+        isAdmin = !!d.data.is_admin;
+        if (isAdmin) document.getElementById('navAdmin').style.display = '';
+      } else logout();
+    } catch { logout(); }
+  }
+
+  async function loadOrders() {
+    hide('tableWrap'); hide('emptyState'); hide('errorMsg'); show('loadWrap');
+    try {
+      const r = await fetch('/api/orders/history', { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      if (d.success) {
+        allOrders = d.data;
+        renderStats(allOrders);
+        renderOrders(allOrders);
+      } else throw new Error(d.message);
+    } catch (err) {
+      hide('loadWrap');
+      show('errorMsg');
+      document.getElementById('errorMsg').textContent = t('ord_load_fail') + err.message;
+    }
+  }
+
+  function renderStats(orders) {
+    const success = orders.filter(o => ['success','completed','done'].includes(o.status)).length;
+    const pending = orders.filter(o => ['processing','pending'].includes(o.status)).length;
+    const spent   = orders.reduce((s, o) => s + parseFloat(o.our_total || 0), 0);
+    document.getElementById('stTotal').textContent   = orders.length;
+    document.getElementById('stSuccess').textContent = success;
+    document.getElementById('stPending').textContent = pending;
+    document.getElementById('stSpent').textContent   = 'Rp ' + spent.toLocaleString('id-ID');
+    show('orderStats');
+
+    // Tampilkan kolom khusus admin (isAdmin sudah pasti di-set sebelum fungsi ini dipanggil)
+    if (isAdmin) {
+      document.getElementById('thProfit').style.display = 'table-cell';
+      document.getElementById('thWA').style.display     = 'table-cell';
+    }
+  }
+
+  function renderOrders(orders) {
+    hide('loadWrap');
+    if (!orders.length) { show('emptyState'); hide('tableWrap'); document.getElementById('orderCards').innerHTML = ''; return; }
+    show('tableWrap');
+
+    // Desktop table
+    document.getElementById('ordersTbody').innerHTML = orders.map(o => {
+      const statusMap = {
+        success:    ['badge-success', t('status_success')],
+        completed:  ['badge-success', t('status_done')],
+        done:       ['badge-success', t('status_done')],
+        processing: ['badge-warning', t('status_processing')],
+        pending:    ['badge-warning', t('status_pending')],
+        failed:     ['badge-danger',  t('status_failed')],
+        cancelled:  ['badge-danger',  t('status_cancelled')],
+      };
+      const [sc, sl] = statusMap[o.status] || ['badge-muted', o.status];
+      const profit = parseFloat(o.profit || 0);
+      const hasWA  = o.whatsapp && String(o.whatsapp).trim().length > 4;
+      const isDone = ['done','completed','success'].includes(o.status);
+      const isProcessing = ['processing','pending'].includes(o.status);
+      const hasAccount = !!o.account_details;
+
+      return `<tr>
+        <td><span class="mono">${esc(o.order_id)}</span></td>
+        <td style="max-width:180px;">
+          <div style="font-weight:600; font-size:0.87rem;">${esc(o.product_name || '—')}</div>
+          <div style="color:var(--muted); font-size:0.78rem;">${esc(o.variant_name || '')}</div>
+          ${isAdmin ? `<div style="color:var(--muted);font-size:0.74rem;margin-top:2px;">👤 ${esc(o.username || '—')}</div>` : ''}
+        </td>
+        <td style="text-align:center;">${o.quantity}</td>
+        <td style="font-weight:700; color:var(--blue);">Rp ${Number(o.our_total || 0).toLocaleString('id-ID')}</td>
+        <td style="${isAdmin ? '' : 'display:none;'}">
+          <span style="color:var(--green); font-weight:700;">+Rp ${profit.toLocaleString('id-ID')}</span>
+        </td>
+        <td>
+          <span class="badge ${sc}">${sl}</span>
+          ${isProcessing && !isAdmin ? `<div style="color:var(--yellow);font-size:0.72rem;margin-top:3px;">${t('ord_waiting_admin')}</div>` : ''}
+          ${isDone && hasAccount && !isAdmin ? `<div style="color:var(--green);font-size:0.72rem;margin-top:3px;">${t('ord_account_available')}</div>` : ''}
+        </td>
+        <td style="white-space:nowrap; color:var(--muted); font-size:0.82rem;">${formatDate(o.created_at)}</td>
+        <td style="${isAdmin ? '' : 'display:none;'}">
+          ${isAdmin ? (hasWA
+            ? `<div style="display:flex;flex-direction:column;gap:0.3rem;min-width:130px;">
+                <span style="font-size:0.75rem;color:var(--muted);font-family:monospace;">+${esc(o.whatsapp)}</span>
+                <button class="btn-wa-inline" onclick="sendWA('${esc(o.order_id)}')">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                  ${t('ord_send_wa')}
+                </button>
+               </div>`
+            : `<span style="color:var(--muted);font-size:0.78rem;" title="${t('ord_wa_no_phone')}">—</span>`)
+          : ''}
+        </td>
+        <td>
+          <button class="btn btn-sm btn-secondary" onclick="showDetail('${esc(o.order_id)}')">${t('btn_detail')}</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    // Mobile cards
+    document.getElementById('orderCards').innerHTML = orders.map(o => {
+      const statusMap = {
+        success: ['badge-success',t('status_success')], completed: ['badge-success',t('status_done')],
+        done: ['badge-success',t('status_done')], processing: ['badge-warning',t('status_processing')],
+        pending: ['badge-warning',t('status_pending')], failed: ['badge-danger',t('status_failed')],
+        cancelled: ['badge-danger',t('status_cancelled')],
+      };
+      const [sc, sl] = statusMap[o.status] || ['badge-muted', o.status];
+      const isDone = ['done','completed','success'].includes(o.status);
+      const isProcessing = ['processing','pending'].includes(o.status);
+      const hasAccount = !!o.account_details;
+
+      return `<div class="order-card">
+        <div class="order-card-top">
+          <div class="order-card-product">
+            ${esc(o.product_name || '—')}
+            <div class="variant">${esc(o.variant_name || '')}</div>
+            ${isAdmin ? `<div class="user">👤 ${esc(o.username || '—')}</div>` : ''}
+          </div>
+          <span class="badge ${sc}" style="flex-shrink:0;">${sl}</span>
+        </div>
+        <div class="order-card-row">
+          <span class="label">${t('ord_total')}</span>
+          <span class="value" style="color:var(--blue);">Rp ${Number(o.our_total || 0).toLocaleString('id-ID')}</span>
+        </div>
+        ${isAdmin ? `<div class="order-card-row"><span class="label">Profit</span><span class="value" style="color:var(--green);">+Rp ${parseFloat(o.profit || 0).toLocaleString('id-ID')}</span></div>` : ''}
+        <div class="order-card-row">
+          <span class="label">${t('ord_date')}</span>
+          <span class="value" style="color:var(--text-muted); font-size:0.78rem;">${formatDate(o.created_at)}</span>
+        </div>
+        ${isProcessing && !isAdmin ? `<div class="hint" style="color:var(--yellow);">${t('ord_waiting_admin')}</div>` : ''}
+        ${isDone && hasAccount && !isAdmin ? `<div class="hint" style="color:var(--green);">${t('ord_account_available')}</div>` : ''}
+        <div class="order-card-actions">
+          <button class="btn btn-sm btn-secondary" onclick="showDetail('${esc(o.order_id)}')">${t('btn_detail')}</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function filterOrders() {
+    const f = document.getElementById('statusFilter').value;
+    const filtered = f === 'all' ? allOrders : allOrders.filter(o => o.status === f);
+    renderOrders(filtered);
+  }
+
+  // ─── Kirim WA dengan pesan lengkap ───────────────────────────────────────────
+  function sendWA(orderId) {
+    const o = allOrders.find(x => x.order_id === orderId);
+    if (!o) return;
+    if (!o.whatsapp) { showToast(t('ord_wa_unavailable'), 'error'); return; }
+
+    // Susun isi pesan
+    let akun = '';
+    if (o.account_details) {
+      try {
+        const ad = typeof o.account_details === 'string' ? JSON.parse(o.account_details) : o.account_details;
+        const lines = Object.entries(ad).map(([k, v]) => `• ${k}: ${v}`);
+        akun = '\n\n' + t('ord_wa_account') + '\n' + lines.join('\n');
+      } catch { akun = '\n\n📋 Detail: ' + String(o.account_details); }
+    }
+
+    const statusLabel = {
+      success: '✅ ' + t('status_success'), completed: '✅ ' + t('status_done'),
+      processing: '⏳ ' + t('status_processing'), pending: '⏳ ' + t('status_pending'),
+      failed: '❌ ' + t('status_failed'), cancelled: '❌ ' + t('status_cancelled')
+    }[o.status] || o.status;
+
+    const msg =
+`${t('ord_wa_greeting').replace('{name}', o.username || 'kak')}
+
+${t('ord_wa_intro')}
+
+${t('ord_wa_order_id')} ${o.order_id}
+${t('ord_wa_product')} ${o.product_name || '—'} — ${o.variant_name || ''}
+${t('ord_wa_qty')} ${o.quantity}
+${t('ord_wa_total')} Rp ${Number(o.our_total || 0).toLocaleString('id-ID')}
+${t('ord_wa_status')} ${statusLabel}${akun}
+
+${t('ord_wa_thanks')}`;
+
+    const wa = String(o.whatsapp).replace(/\D/g, '');
+    const url = `https://wa.me/${wa}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+  }
+
+  // ─── Detail Modal ────────────────────────────────────────────────────────────
+  function showDetail(orderId) {
+    const o = allOrders.find(x => x.order_id === orderId);
+    if (!o) return;
+    const profit = parseFloat(o.profit || 0);
+    const isDone = ['done','completed','success'].includes(o.status);
+    const isProcessing = ['processing','pending'].includes(o.status);
+    const hasAccount = !!o.account_details;
+
+    const waBtn = (isAdmin && o.whatsapp)
+      ? `<button class="btn btn-full" style="background:rgba(37,211,102,0.12);color:#25d366;border:1px solid rgba(37,211,102,0.3);margin-top:0.5rem;" onclick="sendWA('${esc(o.order_id)}'); closeDetail();">
+           ${t('ord_send_wa_to')} ${esc(o.username || 'user')} (+${esc(o.whatsapp)})
+         </button>`
+      : '';
+
+    // Account details display
+    let accountHtml = '';
+    if (hasAccount) {
+      try {
+        const ad = typeof o.account_details === 'string' ? JSON.parse(o.account_details) : o.account_details;
+        const entries = Object.entries(ad).map(([k, v]) =>
+          `<div style="display:flex; justify-content:space-between; padding:0.5rem 0.75rem; border-bottom:1px solid rgba(22,163,74,0.15);">
+            <span style="color:var(--muted); font-size:0.82rem;">${esc(k)}</span>
+            <span style="font-weight:600; color:var(--green); font-size:0.88rem; font-family:monospace; word-break:break-all;">${esc(String(v))}</span>
+          </div>`
+        ).join('');
+        accountHtml = `
+          <div style="background:rgba(22,163,74,0.08); border:1.5px solid rgba(22,163,74,0.25); border-radius:10px; margin-top:0.75rem; overflow:hidden;">
+            <div style="padding:0.6rem 0.75rem; background:rgba(22,163,74,0.12); font-weight:700; font-size:0.85rem; color:var(--green);">${t('ord_account_title')}</div>
+            ${entries}
+          </div>`;
+      } catch {
+        accountHtml = `<div style="margin-top:0.75rem; padding:0.75rem; background:rgba(22,163,74,0.08); border:1px solid rgba(22,163,74,0.2); border-radius:8px; color:var(--green); font-size:0.85rem;">${esc(String(o.account_details))}</div>`;
+      }
+    }
+
+    // Processing notice for non-admin users
+    let processingNotice = '';
+    if (isProcessing && !isAdmin) {
+      processingNotice = `
+        <div style="background:rgba(247,151,30,0.08); border:1.5px solid rgba(247,151,30,0.25); border-radius:10px; padding:1rem; margin-top:0.75rem; text-align:center;">
+          <div style="font-size:1.5rem; margin-bottom:0.5rem;">⏳</div>
+          <div style="font-weight:600; color:var(--yellow); font-size:0.9rem;">${t('ord_being_processed')}</div>
+          <div style="color:var(--muted); font-size:0.8rem; margin-top:0.3rem;">${t('ord_processing_desc')}</div>
+        </div>`;
+    }
+
+    const statusBadgeClass = isDone ? 'badge-success' : o.status === 'failed' || o.status === 'cancelled' ? 'badge-danger' : 'badge-warning';
+    const statusText = {done:t('status_done'), success:t('status_success'), completed:t('status_done'), processing:t('status_processing'), pending:t('status_pending'), failed:t('status_failed'), cancelled:t('status_cancelled')}[o.status] || o.status;
+
+    document.getElementById('detailBody').innerHTML = `
+      <div style="display:grid; gap:0;">
+        ${row(t('ord_detail_id'), `<span class="mono">${esc(o.order_id)}</span>`)}
+        ${isAdmin ? row(t('ord_detail_buyer'), `${esc(o.username || '—')} <span style="color:var(--muted);font-size:0.78rem;">(${esc(o.email || '')})</span>`) : ''}
+        ${(isAdmin && o.whatsapp) ? row(t('ord_detail_wa'), `<span style="font-family:monospace;">+${esc(o.whatsapp)}</span>`) : ''}
+        ${row(t('ord_detail_product'), esc(o.product_name || '—') + ' — ' + esc(o.variant_name || ''))}
+        ${row(t('ord_detail_qty'), o.quantity)}
+        ${row(t('ord_detail_total'), '<strong style="color:var(--blue)">Rp ' + Number(o.our_total || 0).toLocaleString('id-ID') + '</strong>')}
+        ${isAdmin ? row(t('ord_detail_cost'), 'Rp ' + Number(o.original_total || 0).toLocaleString('id-ID')) : ''}
+        ${isAdmin ? row(t('ord_detail_profit'), '<strong style="color:var(--green)">+Rp ' + profit.toLocaleString('id-ID') + '</strong>') : ''}
+        ${row(t('ord_detail_status'), `<span class="badge ${statusBadgeClass}">${statusText}</span>`)}
+        ${row(t('ord_detail_date'), formatDate(o.created_at))}
+      </div>
+      ${accountHtml}
+      ${processingNotice}
+      <div style="margin-top:1.25rem; display:flex; flex-direction:column; gap:0.5rem;">
+        ${waBtn}
+        <button class="btn btn-secondary btn-full" onclick="closeDetail()">${t('btn_close')}</button>
+      </div>`;
+    document.getElementById('detailModal').classList.add('active');
+  }
+
+  function row(label, val) {
+    return `<div style="display:flex; justify-content:space-between; align-items:flex-start; padding:0.7rem 0; border-bottom:1px solid var(--border); gap:0.75rem;">
+      <span style="color:var(--muted); font-size:0.83rem; flex-shrink:0;">${label}</span>
+      <span style="font-size:0.88rem; text-align:right; word-break:break-all; min-width:0;">${val}</span>
+    </div>`;
+  }
+
+  function closeDetail() {
+    document.getElementById('detailModal').classList.remove('active');
+  }
+
+  function formatDate(dt) {
+    return new Date(dt).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  }
+
+  function show(id) { const el = document.getElementById(id); if (el) el.style.display = ''; }
+  function hide(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
+  function esc(s)   { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function logout() { localStorage.removeItem('token'); window.location.href = '/login'; }
+
+  function showToast(msg, type = 'info') {
+    const el = document.createElement('div');
+    el.className = `toast toast-${type === 'error' ? 'error' : type === 'success' ? 'success' : 'info'}`;
+    el.textContent = msg;
+    document.getElementById('toastContainer').appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+
+  document.getElementById('detailModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeDetail();
+  });
+
+  // Re-render on language change
+  document.addEventListener('langChanged', () => {
+    applyTranslations();
+    if (allOrders.length) renderOrders(allOrders.filter(o => {
+      const f = document.getElementById('statusFilter').value;
+      return f === 'all' || o.status === f;
+    }));
+  });
+</script>
+<script src="/js/translations.js"></script>
+<script src="/js/theme-lang.js"></script>
+<script src="/js/support-widget.js"></script>
+</body>
+</html>

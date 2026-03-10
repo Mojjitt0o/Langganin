@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="bal_title">Saldo — Langganin</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" type="image/png" href="/images/logo.png" />
+  <script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);var l=localStorage.getItem('lang');if(l)document.documentElement.setAttribute('lang',l);})()</script>
+  <!-- Midtrans Snap -->
+  <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="Mid-client-c8_NtkrQXWWqx16H"></script>
+  <style>
+    /* ─── Page-level ambient glow ─── */
+    .balance-page-bg {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 0% 10%,  rgba(124,109,240,0.09) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 35% at 100% 80%, rgba(52,211,153,0.06) 0%, transparent 55%);
+    }
+
+    /* ─── Hero balance card ─── */
+    .bal-hero {
+      position: relative; overflow: hidden;
+      background: linear-gradient(140deg, rgba(124,109,240,0.14) 0%, rgba(52,211,153,0.06) 55%, rgba(13,13,26,0) 100%);
+      border: 1px solid rgba(124,109,240,0.22);
+      border-radius: 20px;
+      padding: 2.25rem 2.5rem;
+      margin-bottom: 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1.75rem;
+    }
+    .bal-hero::before {
+      content: '';
+      position: absolute; top: -80px; right: -80px;
+      width: 280px; height: 280px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,109,240,0.18), transparent 68%);
+      pointer-events: none;
+    }
+    .bal-hero::after {
+      content: '';
+      position: absolute; bottom: -50px; left: 30%;
+      width: 180px; height: 180px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(52,211,153,0.07), transparent 65%);
+      pointer-events: none;
+    }
+    .bal-hero-left { position: relative; z-index: 1; }
+    .bal-hero-eyebrow {
+      font-size: 0.68rem; font-weight: 700; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.55rem;
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .bal-hero-eyebrow::before {
+      content: ''; display: inline-block;
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.4); }
+    }
+    .bal-hero-amount {
+      font-size: clamp(2.2rem, 6vw, 3.2rem);
+      font-weight: 900; letter-spacing: -0.05em;
+      color: var(--text); line-height: 1;
+      display: flex; align-items: baseline; gap: 0.4rem;
+    }
+    .bal-hero-amount .currency {
+      font-size: 1.2rem; font-weight: 700; color: var(--muted);
+      letter-spacing: 0; margin-bottom: 2px;
+    }
+    .bal-hero-amount .amount-val { color: var(--green); }
+    .bal-hero-sub {
+      font-size: 0.8rem; color: var(--muted); margin-top: 0.7rem;
+      display: flex; align-items: center; gap: 0.35rem;
+    }
+    .bal-hero-actions {
+      display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;
+      position: relative; z-index: 1;
+    }
+
+    /* ─── Metric strip ─── */
+    .metric-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.85rem; margin-bottom: 1.75rem;
+    }
+    .metric-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 16px; padding: 1.1rem 1.25rem;
+      transition: var(--trans); position: relative; overflow: hidden;
+    }
+    .metric-card:hover { border-color: var(--border2); transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,0.25); }
+    .metric-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      border-radius: 16px 16px 0 0;
+      background: var(--mc-color, var(--accent));
+      opacity: 0.5;
+    }
+    .metric-card.mc-green  { --mc-color: var(--green); }
+    .metric-card.mc-blue   { --mc-color: var(--blue); }
+    .metric-card.mc-yellow { --mc-color: var(--yellow); }
+    .metric-card.mc-purple { --mc-color: var(--accent); }
+    .metric-label {
+      font-size: 0.68rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.45rem;
+      display: flex; align-items: center; gap: 0.35rem;
+    }
+    .metric-val {
+      font-size: 1.4rem; font-weight: 900; letter-spacing: -0.035em; line-height: 1;
+    }
+    .metric-val.green  { color: var(--green); }
+    .metric-val.blue   { color: var(--blue); }
+    .metric-val.yellow { color: var(--yellow); }
+    .metric-val.purple { color: var(--accent); }
+    .metric-sub {
+      font-size: 0.72rem; color: var(--muted); margin-top: 0.35rem;
+    }
+
+    /* ─── Section card wrapper ─── */
+    .section-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 18px; padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .section-card-title {
+      font-size: 0.9rem; font-weight: 700; margin-bottom: 1.25rem;
+      display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+    }
+    .section-card-title .stitle-left { display: flex; align-items: center; gap: 0.5rem; }
+
+    /* ─── Top-up presets ─── */
+    .preset-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;
+      margin-bottom: 0.9rem;
+    }
+    .preset-chip {
+      padding: 0.55rem 0.4rem;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      color: var(--muted); font-size: 0.8rem; font-weight: 600;
+      cursor: pointer; transition: var(--trans); text-align: center;
+    }
+    .preset-chip:hover, .preset-chip.active {
+      background: rgba(124,109,240,0.13);
+      border-color: rgba(124,109,240,0.4); color: var(--accent);
+    }
+    .topup-row { display: flex; gap: 0.65rem; }
+
+    /* ─── Transaction history ─── */
+    .tx-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.1rem; flex-wrap: wrap; gap: 0.75rem;
+    }
+    .tx-title {
+      font-size: 0.9rem; font-weight: 700;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .tx-count-badge {
+      background: rgba(255,255,255,0.07); color: var(--muted);
+      font-size: 0.68rem; font-weight: 700;
+      padding: 2px 9px; border-radius: 20px;
+    }
+    .tx-filter { display: flex; gap: 0.4rem; }
+    .tx-filter-btn {
+      padding: 0.3rem 0.75rem;
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border2);
+      border-radius: 8px; color: var(--muted);
+      font-size: 0.76rem; font-weight: 600;
+      cursor: pointer; transition: var(--trans);
+    }
+    .tx-filter-btn.active, .tx-filter-btn:hover {
+      background: rgba(124,109,240,0.12);
+      border-color: rgba(124,109,240,0.35); color: var(--accent);
+    }
+
+    /* Transaction rows */
+    .tx-list { display: flex; flex-direction: column; gap: 0.45rem; }
+    .tx-row {
+      display: grid;
+      grid-template-columns: 44px 1fr auto;
+      align-items: center; gap: 0.9rem;
+      padding: 0.95rem 1.1rem;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      transition: var(--trans); cursor: default;
+    }
+    .tx-row:hover {
+      background: rgba(255,255,255,0.04);
+      border-color: var(--border2);
+      transform: translateX(3px);
+    }
+    .tx-row.expanded { border-color: rgba(124,109,240,0.2); }
+
+    /* Icon */
+    .tx-ico {
+      width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 1.15rem;
+    }
+    .tx-ico.status-success  { background: rgba(52,211,153,0.1);  border: 1px solid rgba(52,211,153,0.2); }
+    .tx-ico.status-completed{ background: rgba(52,211,153,0.1);  border: 1px solid rgba(52,211,153,0.2); }
+    .tx-ico.status-pending  { background: rgba(251,191,36,0.1);  border: 1px solid rgba(251,191,36,0.2); }
+    .tx-ico.status-processing{background: rgba(96,165,250,0.1);  border: 1px solid rgba(96,165,250,0.2); }
+    .tx-ico.status-failed   { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.2); }
+    .tx-ico.status-default  { background: rgba(255,255,255,0.06);border: 1px solid var(--border2); }
+
+    /* Middle info */
+    .tx-mid { min-width: 0; }
+    .tx-name {
+      font-size: 0.875rem; font-weight: 700;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .tx-meta {
+      font-size: 0.72rem; color: var(--muted); margin-top: 2px;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem;
+    }
+    .tx-meta-sep { opacity: 0.35; }
+    .tx-order-id {
+      font-family: 'Courier New', monospace; font-size: 0.67rem;
+      color: var(--muted); opacity: 0.6; margin-top: 3px;
+    }
+
+    /* Right amount */
+    .tx-right { text-align: right; flex-shrink: 0; }
+    .tx-amt {
+      font-size: 0.9rem; font-weight: 800; color: var(--blue);
+      letter-spacing: -0.02em;
+    }
+    .tx-amt.failed { color: var(--red); }
+    .tx-date { font-size: 0.7rem; color: var(--muted); margin-top: 3px; }
+    .tx-status-badge { margin-top: 5px; display: flex; justify-content: flex-end; }
+
+    /* Admin-only profit expansion */
+    .tx-profit-bar {
+      grid-column: 1 / -1;
+      display: none;
+      margin-top: 0.6rem; padding-top: 0.7rem;
+      border-top: 1px dashed rgba(255,255,255,0.07);
+      gap: 1.25rem; align-items: center; flex-wrap: wrap;
+    }
+    .tx-row.expanded .tx-profit-bar { display: flex; }
+    .tx-profit-item {
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .tx-profit-lbl {
+      font-size: 0.64rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--muted);
+    }
+    .tx-profit-val {
+      font-size: 0.82rem; font-weight: 700; color: var(--text);
+    }
+    .tx-profit-val.green  { color: var(--green); }
+    .tx-profit-val.muted  { color: var(--muted); }
+
+    /* Expand chevron */
+    .tx-expand-btn {
+      display: none; /* shown when admin */
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); padding: 2px; transition: var(--trans);
+      font-size: 0.8rem; margin-top: 3px;
+    }
+    .tx-expand-btn:hover { color: var(--accent); }
+    .tx-row.expanded .tx-expand-btn { color: var(--accent); transform: rotate(180deg); }
+
+    /* Divider */
+    .tx-divider {
+      text-align: center; padding: 0.6rem 0;
+      font-size: 0.7rem; font-weight: 700; color: var(--muted);
+      letter-spacing: 0.06em; text-transform: uppercase;
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    .tx-divider::before, .tx-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    /* Empty / Loading state */
+    .tx-empty {
+      text-align: center; padding: 3.5rem 1rem; color: var(--muted);
+    }
+    .tx-empty .e-icon { font-size: 2.5rem; opacity: 0.3; margin-bottom: 0.8rem; }
+    .tx-empty p { font-size: 0.88rem; }
+
+    /* Responsive tweaks */
+    @media (max-width: 600px) {
+      .bal-hero { padding: 1.6rem 1.4rem; }
+      .bal-hero-amount { font-size: 2rem; }
+      .preset-grid { grid-template-columns: repeat(2, 1fr); }
+      .tx-row { grid-template-columns: 38px 1fr auto; gap: 0.65rem; padding: 0.8rem 0.9rem; }
+      .tx-ico { width: 38px; height: 38px; font-size: 1rem; }
+      .metric-strip { grid-template-columns: repeat(2, 1fr); }
+      #pendingTransactionAlert > div:first-child { flex-wrap: wrap; }
+      #pendingTransactionAlert button { width: 100%; text-align: center; justify-content: center; }
+    }
+    @media (max-width: 480px) {
+      .bal-hero { padding: 1.2rem 1rem; gap: 1rem; }
+      .bal-hero-amount { font-size: 1.6rem; }
+      .bal-hero-actions { width: 100%; }
+      .bal-hero-actions .btn { flex: 1; font-size: 0.82rem; padding: 0.6rem 0.75rem; }
+      .metric-strip { grid-template-columns: 1fr; }
+      .preset-grid { grid-template-columns: repeat(2, 1fr); }
+      .topup-row { flex-direction: column; }
+      .topup-row .btn { width: 100%; }
+      .section-card { padding: 1rem; border-radius: 14px; }
+      .tx-row { padding: 0.7rem 0.75rem; gap: 0.6rem; }
+      .tx-ico { width: 34px; height: 34px; font-size: 0.9rem; border-radius: 10px; }
+      .tx-row { grid-template-columns: 34px 1fr auto; }
+      .tx-name { font-size: 0.8rem; }
+      .tx-amt { font-size: 0.82rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="balance-page-bg"></div>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a href="/" class="navbar-brand"><img src="/images/logo.png" alt="Langganin" style="height: 28px; width: auto; margin-right: 0.5rem; vertical-align: middle;"> <em>Langganin</em></a>
+  <div class="navbar-menu" id="navMenu">
+    <a href="/products" data-i18n="nav_products">Produk</a>
+    <a href="/orders" data-i18n="nav_orders">Pesanan</a>
+    <a href="/balance" class="active" data-i18n="nav_balance">Saldo</a>
+    <span class="nav-balance" id="navBalanceVal">Rp 0</span>
+    <a href="/affiliate" id="navAffiliate" data-i18n="nav_affiliate">🤝 Affiliate</a>
+    <a href="/admin" id="navAdmin" style="display:none" class="badge badge-purple" data-i18n="nav_admin">Admin</a>
+    <a href="/login"    id="navLogin"  class="btn btn-primary btn-sm" style="display:none" data-i18n="nav_login">Masuk</a>
+    <a href="/register" id="navReg"    class="btn btn-outline btn-sm" style="display:none" data-i18n="nav_register">Daftar</a>
+    <button class="btn btn-sm btn-danger" id="navLogout" onclick="logout()" data-i18n="nav_logout">Keluar</button>
+  </div>
+  <button class="nav-toggle" id="navToggle" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- MAIN -->
+<main class="page" style="position:relative; z-index:1;">
+  <div class="container" style="max-width:960px;">
+
+    <!-- Page header -->
+    <div class="page-header" style="margin-bottom:1.5rem;">
+      <h1 style="font-size:1.6rem; font-weight:900; letter-spacing:-0.035em;" data-i18n="bal_heading">Saldo & Transaksi</h1>
+      <p style="color:var(--muted); font-size:0.875rem; margin-top:0.25rem;" data-i18n="bal_subtitle">Kelola saldo dan pantau seluruh riwayat transaksimu.</p>
+    </div>
+
+    <!-- Pending Transaction Alert -->
+    <div id="pendingTransactionAlert" style="display:none; margin-bottom:1.5rem; padding:1.25rem 1.5rem; background:linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.08)); border:1px solid rgba(251,191,36,0.3); border-radius:16px; position:relative; overflow:hidden;">
+      <div style="position:absolute; top:-20px; right:-20px; width:120px; height:120px; background:radial-gradient(circle, rgba(251,191,36,0.2), transparent 70%); pointer-events:none;"></div>
+      <div style="display:flex; align-items:center; gap:1rem; position:relative; z-index:1; flex-wrap:wrap;">
+        <div style="flex-shrink:0; width:48px; height:48px; background:rgba(251,191,36,0.2); border:2px solid rgba(251,191,36,0.4); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.5rem;">
+          ⏳
+        </div>
+        <div style="flex:1; min-width:180px;">
+          <div style="font-weight:700; color:#f59e0b; font-size:0.95rem; margin-bottom:0.25rem;" data-i18n="bal_pending_title">Pembayaran Menunggu</div>
+          <div style="color:#92400e; font-size:0.85rem; line-height:1.5;" data-i18n="bal_pending_desc">Kamu punya transaksi top up yang belum diselesaikan</div>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-shrink:0; flex-wrap:wrap;">
+          <button onclick="goToPendingInvoice()" style="padding:0.6rem 1.25rem; background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#fff; border:none; border-radius:10px; font-weight:700; font-size:0.85rem; cursor:pointer; transition:all 0.3s; box-shadow:0 4px 12px rgba(251,191,36,0.25);" data-i18n="bal_pending_view">
+            Lihat Invoice →
+          </button>
+          <button onclick="cancelPendingTopup()" style="padding:0.6rem 1.25rem; background:transparent; color:#ef4444; border:1px solid rgba(239,68,68,0.3); border-radius:10px; font-weight:700; font-size:0.85rem; cursor:pointer; transition:all 0.3s;" data-i18n="bal_pending_cancel">
+            ✕ Batalkan
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Balance Hero ── -->
+    <div class="bal-hero">
+      <div class="bal-hero-left">
+        <div class="bal-hero-eyebrow" data-i18n="bal_active">Saldo Aktif</div>
+        <div class="bal-hero-amount">
+          <span class="currency">Rp</span>
+          <span class="amount-val" id="heroBalance">0</span>
+        </div>
+        <div class="bal-hero-sub">
+          <span>💡</span>
+          <span id="heroSubtext">Siap digunakan untuk transaksi</span>
+        </div>
+      </div>
+      <div class="bal-hero-actions">
+        <button class="btn btn-primary" onclick="scrollToTopup()" data-i18n-html="bal_btn_topup">
+          <span>💳</span> Top Up
+        </button>
+        <button class="btn btn-secondary" onclick="scrollToWithdraw()" data-i18n-html="bal_btn_withdraw">
+          <span>💰</span> Tarik Dana
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Metric Strip ── -->
+    <div class="metric-strip" id="metricStrip">
+      <div class="metric-card mc-blue">
+        <div class="metric-label" data-i18n="bal_stat_spent">📦 Total Belanja</div>
+        <div class="metric-val blue" id="statSpent">—</div>
+        <div class="metric-sub" id="statSpentSub" data-i18n="bal_stat_spent_sub">dari semua transaksi</div>
+      </div>
+      <div class="metric-card mc-purple">
+        <div class="metric-label" data-i18n="bal_stat_orders">🔢 Jumlah Order</div>
+        <div class="metric-val purple" id="statOrders">—</div>
+        <div class="metric-sub" id="statOrdersSub" data-i18n="bal_stat_orders_sub">transaksi tercatat</div>
+      </div>
+      <!-- Admin-only profit metrics -->
+      <div class="metric-card mc-green admin-only" style="display:none;">
+        <div class="metric-label" data-i18n="bal_stat_profit">📈 Total Profit</div>
+        <div class="metric-val green" id="statProfit">—</div>
+        <div class="metric-sub" data-i18n="bal_stat_profit_sub">dari markup harga</div>
+      </div>
+      <div class="metric-card mc-yellow admin-only" style="display:none;">
+        <div class="metric-label" data-i18n="bal_stat_avg">💹 Avg. Profit/Order</div>
+        <div class="metric-val yellow" id="statAvgProfit">—</div>
+        <div class="metric-sub" data-i18n="bal_stat_avg_sub">rata-rata per transaksi</div>
+      </div>
+    </div>
+
+    <!-- ── Top Up Section ── -->
+    <div class="section-card" id="topupSection">
+      <div class="section-card-title">
+        <div class="stitle-left">
+          <span>💳</span>
+          <span data-i18n="bal_topup_title">Top Up Saldo</span>
+        </div>
+        <span style="font-size:0.72rem; color:var(--muted); font-weight:500;" data-i18n="bal_topup_dev">Simulasi dev</span>
+      </div>
+
+      <div class="preset-grid">
+        <button class="preset-chip" onclick="setAmount(10000)">Rp 10.000</button>
+        <button class="preset-chip" onclick="setAmount(25000)">Rp 25.000</button>
+        <button class="preset-chip" onclick="setAmount(50000)">Rp 50.000</button>
+        <button class="preset-chip" onclick="setAmount(100000)">Rp 100.000</button>
+        <button class="preset-chip" onclick="setAmount(250000)">Rp 250.000</button>
+        <button class="preset-chip" onclick="setAmount(500000)">Rp 500.000</button>
+      </div>
+
+      <div class="topup-row">
+        <input
+          type="number"
+          class="form-input"
+          id="topupAmount"
+          placeholder="Atau masukkan nominal sendiri..."
+          data-i18n-placeholder="bal_topup_custom"
+          min="1000" step="1000"
+          oninput="clearPresetActive()"
+        />
+        <button class="btn btn-primary" id="topupBtn" onclick="doTopup()" style="flex-shrink:0; min-width:96px;" data-i18n="bal_topup_btn">
+          Top Up
+        </button>
+      </div>
+
+      <div id="topupAlert" class="alert" style="display:none; margin-top:0.9rem;"></div>
+
+      <div style="background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); border-radius: 10px; padding: 0.9rem; margin-top: 1rem;">
+        <div style="display: flex; align-items: flex-start; gap: 0.6rem;">
+          <span style="font-size: 1.3rem; flex-shrink: 0;">ℹ️</span>
+          <div style="font-size: 0.75rem; line-height: 1.6; color: var(--text);">
+            <div style="font-weight: 700; margin-bottom: 0.3rem; color: #60a5fa;" data-i18n="bal_topup_info_title">Informasi Pembayaran</div>
+            <div style="color: var(--muted);" data-i18n-html="bal_topup_info_desc">Pembayaran diproses melalui <strong style="color: var(--text);">TradeSmart HUB</strong> - payment gateway partner resmi kami. Anda dapat memilih berbagai metode: Bank Transfer, E-Wallet (GoPay, OVO, Dana), QRIS, dan lainnya.</div>
+            <div style="margin-top: 0.4rem; font-size: 0.7rem; opacity: 0.7;" data-i18n="bal_topup_secure">🛡️ Transaksi aman & terenkripsi</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Withdraw Section ── -->
+    <div class="section-card" id="withdrawSection">
+      <div class="section-card-header">
+        <div class="section-title">
+          <span style="font-size:1.15rem; flex-shrink:0;">💰</span>
+          <span data-i18n="bal_withdraw_title">Tarik Dana</span>
+        </div>
+      </div>
+
+      <div style="background:rgba(251,191,36,0.06); border:1px solid rgba(251,191,36,0.15); border-radius:10px; padding:0.9rem; margin-bottom:1rem;">
+        <div style="font-size:0.75rem; color:var(--yellow); font-weight:600; display:flex; align-items:center; gap:0.4rem; margin-bottom:0.3rem;">
+          <span>⚠️</span> <span data-i18n="bal_withdraw_info">Informasi Penting</span>
+        </div>
+        <ul style="font-size:0.75rem; color:var(--muted); margin:0; padding-left:1.3rem; line-height:1.7;">
+          <li data-i18n="bal_withdraw_min">Minimum penarikan: Rp 50.000</li>
+          <li data-i18n="bal_withdraw_fee">Admin fee: 10% dari jumlah penarikan</li>
+          <li data-i18n="bal_withdraw_deduct">Saldo akan dipotong saat request dan dikembalikan jika ditolak</li>
+          <li data-i18n="bal_withdraw_time">Proses 1-3 hari kerja setelah persetujuan admin</li>
+        </ul>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" data-i18n="bal_withdraw_amount">Jumlah Penarikan</label>
+        <input type="number" class="form-input" id="withdrawAmount" placeholder="Min. Rp 50.000" data-i18n-placeholder="bal_withdraw_amount_ph" min="50000" step="1000" />
+        <div class="form-hint" id="withdrawHint" style="display:none; margin-top:0.4rem;"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" data-i18n="bal_withdraw_bank">Nama Bank</label>
+        <input type="text" class="form-input" id="withdrawBankName" placeholder="Contoh: BCA, Mandiri, BNI" data-i18n-placeholder="bal_withdraw_bank_ph" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" data-i18n="bal_withdraw_accnum">Nomor Rekening</label>
+        <input type="text" class="form-input" id="withdrawAccountNumber" placeholder="Nomor rekening bank" data-i18n-placeholder="bal_withdraw_accnum_ph" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" data-i18n="bal_withdraw_accname">Nama Pemilik Rekening</label>
+        <input type="text" class="form-input" id="withdrawAccountName" placeholder="Sesuai buku tabungan" data-i18n-placeholder="bal_withdraw_accname_ph" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" data-i18n="bal_withdraw_notes">Catatan (Opsional)</label>
+        <textarea class="form-input" id="withdrawNotes" placeholder="Catatan tambahan jika ada..." data-i18n-placeholder="bal_withdraw_notes_ph" rows="2"></textarea>
+      </div>
+
+      <button class="btn btn-primary btn-full" id="withdrawBtn" onclick="doWithdraw()" data-i18n="bal_withdraw_submit">
+        Ajukan Penarikan
+      </button>
+
+      <div id="withdrawAlert" class="alert" style="display:none; margin-top:0.9rem;"></div>
+    </div>
+
+    <!-- ── Transaction History ── -->
+    <div style="margin-bottom:1rem;">
+      <div class="tx-header">
+        <div class="tx-title">
+          <span>📋</span>
+          <span data-i18n="bal_tx_title">Riwayat Transaksi</span>
+          <span class="tx-count-badge" id="txCountBadge">—</span>
+        </div>
+        <div class="tx-filter" id="txFilter">
+          <button class="tx-filter-btn active" data-filter="all" onclick="filterTx('all', this)" data-i18n="bal_tx_all">Semua</button>
+          <button class="tx-filter-btn" data-filter="success" onclick="filterTx('success', this)" data-i18n="bal_tx_success">Sukses</button>
+          <button class="tx-filter-btn" data-filter="pending" onclick="filterTx('pending', this)" data-i18n="bal_tx_pending">Pending</button>
+          <button class="tx-filter-btn" data-filter="failed" onclick="filterTx('failed', this)" data-i18n="bal_tx_failed">Gagal</button>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div class="loading-wrap" id="loadWrap">
+        <div class="spinner"></div>
+        <span data-i18n="bal_tx_loading">Memuat transaksi...</span>
+      </div>
+
+      <!-- List -->
+      <div id="txList" class="tx-list" style="display:none;"></div>
+
+      <!-- Empty -->
+      <div class="tx-empty" id="emptyState" style="display:none;">
+        <div class="e-icon">📊</div>
+        <p><span data-i18n="bal_tx_empty">Belum ada transaksi.</span> <a href="/products" style="color:var(--accent); font-weight:700;" data-i18n="bal_tx_shop">Mulai belanja →</a></p>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  <p>© 2026 Langganin</p>
+</footer>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const token = localStorage.getItem('token');
+  if (!token) { window.location.href = '/login'; }
+
+  let isAdmin    = false;
+  let allOrders  = [];
+  let activeFilter = 'all';
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadAll();
+    document.getElementById('navToggle').addEventListener('click', () => {
+      document.getElementById('navMenu').classList.toggle('open');
+    });
+    document.querySelectorAll('#navMenu a').forEach(link => {
+      link.addEventListener('click', () => {
+        document.getElementById('navMenu').classList.remove('open');
+      });
+    });
+  });
+
+  async function loadAll() {
+    await loadProfile();
+    await loadHistory();
+  }
+
+  /* ── Profile ── */
+  let pendingTopupOrderId = null;
+
+  async function loadProfile() {
+    try {
+      const r = await fetch('/api/auth/profile', { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      if (!d.success) { logout(); return; }
+      const bal = Number(d.data.balance);
+      const balFmt = bal.toLocaleString('id-ID');
+      document.getElementById('heroBalance').textContent     = balFmt;
+      document.getElementById('navBalanceVal').textContent   = 'Rp ' + balFmt;
+      document.getElementById('heroSubtext').textContent     = bal > 0 ? t('bal_ready') : t('bal_empty');
+      isAdmin = !!d.data.is_admin;
+      if (isAdmin) {
+        document.getElementById('navAdmin').style.display = '';
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+      }
+      // Check for pending topup transactions
+      await checkPendingTopup();
+    } catch { logout(); }
+  }
+
+  async function checkPendingTopup() {
+    try {
+      const r = await fetch('/api/topup/history', { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      if (d.success && d.data.length > 0) {
+        // Find the most recent pending transaction
+        const pending = d.data.find(t => t.status === 'pending');
+        if (pending) {
+          // Verify status with invoice endpoint (which syncs with Midtrans)
+          const verifyRes = await fetch(`/api/topup/invoice/${pending.order_id}`, {
+            headers: { Authorization: 'Bearer ' + token }
+          });
+          const verifyData = await verifyRes.json();
+          
+          // Only show banner if still actually pending after verification
+          if (verifyData.success && verifyData.data.status === 'pending') {
+            pendingTopupOrderId = pending.order_id;
+            document.getElementById('pendingTransactionAlert').style.display = 'block';
+            
+            // Disable topup button and show info
+            const topupBtn = document.getElementById('topupBtn');
+            if (topupBtn) {
+              topupBtn.disabled = true;
+              topupBtn.textContent = t('bal_topup_pending_btn');
+              topupBtn.style.opacity = '0.6';
+              topupBtn.style.cursor = 'not-allowed';
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Check pending topup error:', error);
+    }
+  }
+
+  function goToPendingInvoice() {
+    if (pendingTopupOrderId) {
+      window.location.href = `/invoice?order_id=${pendingTopupOrderId}`;
+    }
+  }
+
+  async function cancelPendingTopup() {
+    if (!pendingTopupOrderId) return;
+    if (!confirm(t('bal_cancel_confirm'))) return;
+
+    try {
+      const r = await fetch(`/api/topup/cancel/${pendingTopupOrderId}`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }
+      });
+      const d = await r.json();
+      if (d.success) {
+        // Hide pending alert and re-enable topup
+        document.getElementById('pendingTransactionAlert').style.display = 'none';
+        const topupBtn = document.getElementById('topupBtn');
+        if (topupBtn) {
+          topupBtn.disabled = false;
+          topupBtn.textContent = t('bal_topup_btn');
+          topupBtn.style.opacity = '';
+          topupBtn.style.cursor = '';
+        }
+        pendingTopupOrderId = null;
+        loadHistory(); // Refresh history
+      } else {
+        alert(d.message || t('bal_cancel_fail'));
+      }
+    } catch (error) {
+      console.error('Cancel topup error:', error);
+      alert(t('bal_cancel_error'));
+    }
+  }
+
+  /* ── History ── */
+  async function loadHistory() {
+    hide('txList'); hide('emptyState'); show('loadWrap');
+    try {
+      const r = await fetch('/api/orders/history', { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.message);
+      allOrders = d.data;
+      updateMetrics(allOrders);
+      renderTxList(allOrders);
+    } catch (err) {
+      hide('loadWrap');
+      toast(t('bal_load_fail') + err.message, 'error');
+    }
+  }
+
+  /* ── Metrics ── */
+  function updateMetrics(orders) {
+    const spent   = orders.reduce((s, o) => s + parseFloat(o.our_total  || 0), 0);
+    const profit  = orders.reduce((s, o) => s + parseFloat(o.profit     || 0), 0);
+    const avg     = orders.length ? profit / orders.length : 0;
+    document.getElementById('statSpent').textContent    = 'Rp ' + spent.toLocaleString('id-ID');
+    document.getElementById('statOrders').textContent   = orders.length;
+    const successCount = orders.filter(o => ['success','completed'].includes(o.status)).length;
+    document.getElementById('statOrdersSub').textContent = successCount + ' ' + t('bal_stat_success_count');
+    if (isAdmin) {
+      document.getElementById('statProfit').textContent    = 'Rp ' + profit.toLocaleString('id-ID');
+      document.getElementById('statAvgProfit').textContent = 'Rp ' + Math.round(avg).toLocaleString('id-ID');
+    }
+  }
+
+  /* ── Filter ── */
+  function filterTx(filter, btn) {
+    activeFilter = filter;
+    document.querySelectorAll('.tx-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const filtered = filter === 'all'
+      ? allOrders
+      : allOrders.filter(o => {
+          if (filter === 'success') return ['success','completed'].includes(o.status);
+          if (filter === 'pending') return ['pending','processing'].includes(o.status);
+          return o.status === filter;
+        });
+    renderTxList(filtered);
+  }
+
+  /* ── Render transaction list ── */
+  function getStatusMap() {
+    return {
+      success:    { icon: '✅', cls: 'status-success',   badge: 'badge-success', label: t('status_success') },
+      completed:  { icon: '✅', cls: 'status-completed',  badge: 'badge-success', label: t('status_done') },
+      processing: { icon: '⏳', cls: 'status-processing', badge: 'badge-info',    label: t('status_processing') },
+      pending:    { icon: '🕐', cls: 'status-pending',    badge: 'badge-warning', label: t('status_pending') },
+      failed:     { icon: '❌', cls: 'status-failed',     badge: 'badge-danger',  label: t('status_failed') },
+      expired:    { icon: '⌛', cls: 'status-failed',     badge: 'badge-muted',   label: t('bal_status_expired') },
+      cancelled:  { icon: '🚫', cls: 'status-failed',     badge: 'badge-muted',   label: t('bal_status_cancelled') },
+    };
+  }
+
+  function renderTxList(orders) {
+    hide('loadWrap');
+    const list = document.getElementById('txList');
+    document.getElementById('txCountBadge').textContent = orders.length;
+
+    if (!orders.length) {
+      list.style.display = 'none';
+      show('emptyState');
+      return;
+    }
+    hide('emptyState');
+    show('txList');
+
+    // Group by date
+    const groups = {};
+    orders.forEach(o => {
+      const dt = new Date(o.created_at);
+      const key = dt.toLocaleDateString('id-ID', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(o);
+    });
+
+    let html = '';
+    const STATUS_MAP = getStatusMap();
+    Object.entries(groups).forEach(([date, items]) => {
+      html += `<div class="tx-divider">${esc(date)}</div>`;
+      items.forEach(o => {
+        const s   = STATUS_MAP[o.status] || { icon: '📦', cls: 'status-default', badge: 'badge-muted', label: esc(o.status) };
+        const amt = Number(o.our_total || 0);
+        const isFailed = o.status === 'failed';
+        const dt  = new Date(o.created_at).toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' });
+
+        // Admin profit expansion
+        const profitVal  = parseFloat(o.profit || 0);
+        const modalVal   = Number(o.original_total || 0);
+        const adminRows  = isAdmin ? `
+          <div class="tx-profit-bar">
+            <div class="tx-profit-item">
+              <span class="tx-profit-lbl">${t('bal_tx_sell')}</span>
+              <span class="tx-profit-val">Rp ${amt.toLocaleString('id-ID')}</span>
+            </div>
+            <div class="tx-profit-item">
+              <span class="tx-profit-lbl">${t('bal_tx_cost')}</span>
+              <span class="tx-profit-val muted">Rp ${modalVal.toLocaleString('id-ID')}</span>
+            </div>
+            <div class="tx-profit-item">
+              <span class="tx-profit-lbl">Profit</span>
+              <span class="tx-profit-val green">+Rp ${profitVal.toLocaleString('id-ID')}</span>
+            </div>
+          </div>
+        ` : '';
+
+        const expandBtn = isAdmin ? `<button class="tx-expand-btn" style="display:inline-flex;" onclick="toggleExpand(this.closest('.tx-row'))" title="${t('bal_tx_detail_profit')}">▾</button>` : '';
+
+        html += `
+          <div class="tx-row${isAdmin ? '' : ''}" onclick="${isAdmin ? 'toggleExpand(this)' : 'void(0)'}">
+            <div class="tx-ico ${s.cls}">${s.icon}</div>
+            <div class="tx-mid">
+              <div class="tx-name">${esc(o.product_name || '—')}</div>
+              <div class="tx-meta">
+                <span>${esc(o.variant_name || t('bal_tx_product_digital'))}</span>
+                ${isAdmin ? `<span class="tx-meta-sep">·</span><span class="badge ${s.badge}" style="font-size:0.65rem;">${s.label}</span>` : ''}
+              </div>
+              <div class="tx-order-id">${esc(o.order_id)}</div>
+              ${adminRows}
+            </div>
+            <div class="tx-right">
+              <div class="tx-amt${isFailed ? ' failed' : ''}">Rp ${amt.toLocaleString('id-ID')}</div>
+              <div class="tx-date">${dt}</div>
+              ${!isAdmin ? `<div class="tx-status-badge"><span class="badge ${s.badge}" style="font-size:0.65rem;">${s.label}</span></div>` : expandBtn}
+            </div>
+          </div>`;
+      });
+    });
+
+    list.innerHTML = html;
+  }
+
+  function toggleExpand(row) {
+    if (!isAdmin) return;
+    row.classList.toggle('expanded');
+  }
+
+  /* ── Top Up ── */
+  function setAmount(val) {
+    document.getElementById('topupAmount').value = val;
+    document.querySelectorAll('.preset-chip').forEach(c => {
+      c.classList.toggle('active', parseInt(c.textContent.replace(/\D/g,'').replace(/\./g,'')) === val
+        || c.textContent === 'Rp ' + val.toLocaleString('id-ID'));
+    });
+    // simpler active match
+    document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+    event && event.currentTarget && event.currentTarget.classList.add('active');
+  }
+
+  function clearPresetActive() {
+    document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+  }
+
+  function scrollToTopup() {
+    document.getElementById('topupSection').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => document.getElementById('topupAmount').focus(), 400);
+  }
+
+  async function doTopup() {
+    const amount  = parseInt(document.getElementById('topupAmount').value);
+    const alertEl = document.getElementById('topupAlert');
+    const btn     = document.getElementById('topupBtn');
+
+    if (!amount || amount < 10000) {
+      showAlert(alertEl, 'warning', t('bal_topup_min_err'));
+      return;
+    }
+
+    if (amount > 10000000) {
+      showAlert(alertEl, 'warning', t('bal_topup_max_err'));
+      return;
+    }
+
+    btn.disabled = true; btn.textContent = t('bal_processing');
+    alertEl.style.display = 'none';
+
+    try {
+      const r = await fetch('/api/topup/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ amount })
+      });
+      const d = await r.json();
+      if (d.success) {
+        // Redirect to invoice page immediately
+        window.location.href = `/invoice?order_id=${d.data.order_id}`;
+      } else {
+        // If there's a pending transaction, offer to go to that invoice
+        if (d.pending_order_id) {
+          showAlert(alertEl, 'warning', d.message + ' <a href="/invoice?order_id=' + d.pending_order_id + '" style="color: #fff; text-decoration: underline; font-weight: 600;">' + t('bal_topup_view_invoice') + '</a>');
+        } else {
+          showAlert(alertEl, 'danger', d.message);
+        }
+        btn.disabled = false; btn.textContent = t('bal_topup_btn');
+      }
+    } catch (error) {
+      showAlert(alertEl, 'danger', t('bal_topup_error'));
+      btn.disabled = false; btn.textContent = t('bal_topup_btn');
+    }
+  }
+
+  function scrollToWithdraw() {
+    document.getElementById('withdrawSection').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => document.getElementById('withdrawAmount').focus(), 400);
+  }
+
+  async function doWithdraw() {
+    const amount = parseInt(document.getElementById('withdrawAmount').value);
+    const bankName = document.getElementById('withdrawBankName').value.trim();
+    const accountNumber = document.getElementById('withdrawAccountNumber').value.trim();
+    const accountName = document.getElementById('withdrawAccountName').value.trim();
+    const notes = document.getElementById('withdrawNotes').value.trim();
+    const alertEl = document.getElementById('withdrawAlert');
+    const btn = document.getElementById('withdrawBtn');
+
+    // Validation
+    if (!amount || amount < 50000) {
+      showAlert(alertEl, 'warning', t('bal_withdraw_min_err'));
+      return;
+    }
+
+    if (!bankName) {
+      showAlert(alertEl, 'warning', t('bal_withdraw_bank_req'));
+      return;
+    }
+
+    if (!accountNumber) {
+      showAlert(alertEl, 'warning', t('bal_withdraw_accnum_req'));
+      return;
+    }
+
+    if (!accountName) {
+      showAlert(alertEl, 'warning', t('bal_withdraw_accname_req'));
+      return;
+    }
+
+    // Calculate admin fee
+    const adminFee = Math.ceil(amount * 10 / 100);
+    const netAmount = amount - adminFee;
+
+    const confirmed = confirm(`${t('bal_withdraw_confirm_title')}\n\n${t('bal_withdraw_confirm_amount')}: Rp ${amount.toLocaleString('id-ID')}\n${t('bal_withdraw_confirm_fee')}: Rp ${adminFee.toLocaleString('id-ID')}\n${t('bal_withdraw_confirm_net')}: Rp ${netAmount.toLocaleString('id-ID')}\n\n${t('bal_withdraw_confirm_note')}\n\n${t('bal_withdraw_confirm_go')}`);
+    
+    if (!confirmed) return;
+
+    btn.disabled = true; btn.textContent = t('bal_processing');
+    alertEl.style.display = 'none';
+
+    try {
+      const r = await fetch('/api/withdrawal/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ 
+          amount, 
+          bank_name: bankName,
+          account_number: accountNumber,
+          account_name: accountName,
+          notes: notes || undefined
+        })
+      });
+      const d = await r.json();
+      if (d.success) {
+        showAlert(alertEl, 'success', `✓ ${d.message}`);
+        // Clear form
+        document.getElementById('withdrawAmount').value = '';
+        document.getElementById('withdrawBankName').value = '';
+        document.getElementById('withdrawAccountNumber').value = '';
+        document.getElementById('withdrawAccountName').value = '';
+        document.getElementById('withdrawNotes').value = '';
+        await loadProfile();
+        toast(t('bal_withdraw_success'), 'success');
+      } else {
+        showAlert(alertEl, 'danger', d.message);
+      }
+    } catch (error) {
+      showAlert(alertEl, 'danger', t('bal_withdraw_error'));
+    } finally {
+      btn.disabled = false; btn.textContent = t('bal_withdraw_submit');
+    }
+  }
+
+  // Update hint when amount changes
+  document.addEventListener('DOMContentLoaded', () => {
+    const withdrawAmountInput = document.getElementById('withdrawAmount');
+    const withdrawHint = document.getElementById('withdrawHint');
+    
+    if (withdrawAmountInput) {
+      withdrawAmountInput.addEventListener('input', () => {
+        const amount = parseInt(withdrawAmountInput.value);
+        if (amount && amount >= 50000) {
+          const adminFee = Math.ceil(amount * 10 / 100);
+          const netAmount = amount - adminFee;
+          withdrawHint.innerHTML = `<span style="color:var(--green);">✓</span> ${t('bal_withdraw_hint_fee')}: Rp ${adminFee.toLocaleString('id-ID')} | ${t('bal_withdraw_hint_net')}: <strong>Rp ${netAmount.toLocaleString('id-ID')}</strong>`;
+          withdrawHint.style.display = 'block';
+        } else if (amount) {
+          withdrawHint.innerHTML = `<span style="color:var(--red);">✗</span> ${t('bal_withdraw_hint_min')}`;
+          withdrawHint.style.display = 'block';
+        } else {
+          withdrawHint.style.display = 'none';
+        }
+      });
+    }
+  });
+
+  /* ── Helpers ── */
+  function showAlert(el, type, msg) {
+    el.className = `alert alert-${type}`;
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+  function show(id) { const el = document.getElementById(id); if (el) el.style.display = ''; }
+  function hide(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
+  function esc(s)   { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function logout() { localStorage.removeItem('token'); window.location.href = '/login'; }
+  function toast(msg, type = 'info') {
+    const c = document.getElementById('toastContainer');
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    el.textContent = msg;
+    c.appendChild(el);
+    setTimeout(() => el.remove(), 3800);
+  }
+
+  // Re-render on language change
+  document.addEventListener('langChanged', () => {
+    applyTranslations();
+    if (allOrders.length) renderTxList(allOrders);
+  });
+</script>
+<script src="/js/translations.js"></script>
+<script src="/js/theme-lang.js"></script>
+<script src="/js/support-widget.js"></script>
+</body>
+</html>

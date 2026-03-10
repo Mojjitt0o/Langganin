@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="auth_reg_title">Daftar — Langganin</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" type="image/png" href="/images/logo.png" />
+  <script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);var l=localStorage.getItem('lang');if(l)document.documentElement.setAttribute('lang',l);})()</script>
+</head>
+<body>
+
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-logo"><img src="/images/logo.png" alt="Langganin" style="height: 40px; width: auto; margin-right: 0.6rem; vertical-align: middle;"> <em>Langganin</em></div>
+      <p class="auth-tagline" data-i18n="auth_reg_tagline">Buat akun baru, gratis selamanya</p>
+    </div>
+
+    <div id="alertMsg" class="alert" style="display:none; margin-bottom:1rem;"></div>
+
+    <form id="regForm">
+      <div class="form-group">
+        <label class="form-label" data-i18n="auth_username">Username</label>
+        <input type="text" class="form-input" id="username" placeholder="usernamekamu" data-i18n-placeholder="auth_username_ph" required minlength="3" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="auth_email">Email</label>
+        <input type="email" class="form-input" id="email" placeholder="nama@email.com" data-i18n-placeholder="auth_email_ph" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="auth_password">Password</label>
+        <input type="password" class="form-input" id="password" placeholder="Min. 6 karakter" data-i18n-placeholder="auth_password_min" required minlength="6" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="auth_confirm">Konfirmasi Password</label>
+        <input type="password" class="form-input" id="confirm" placeholder="Ulangi password" data-i18n-placeholder="auth_confirm_ph" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">
+          <span data-i18n="auth_whatsapp">No. WhatsApp</span>
+          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0; font-size:0.75rem;" data-i18n="auth_whatsapp_opt">(opsional)</span>
+        </label>
+        <div style="position:relative;">
+          <span style="position:absolute; left:1rem; top:50%; transform:translateY(-50%); color:var(--muted); font-size:0.9rem; pointer-events:none;">📱</span>
+          <input type="tel" class="form-input" id="whatsapp" placeholder="08xxxxxxxxxx" data-i18n-placeholder="auth_whatsapp_ph" style="padding-left:2.4rem;" />
+        </div>
+        <p class="form-hint" data-i18n="auth_whatsapp_hint">Format: 08xx atau 628xx. Digunakan admin untuk pengiriman produk.</p>
+      </div>
+      <div class="form-group" id="refGroup">
+        <label class="form-label">
+          🤝 <span data-i18n="auth_ref_code">Kode Referral</span>
+          <span style="color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0; font-size:0.75rem;" data-i18n="auth_whatsapp_opt">(opsional)</span>
+        </label>
+        <div style="position:relative;">
+          <input type="text" class="form-input" id="refCode" placeholder="Contoh: USER-ABC123" data-i18n-placeholder="auth_ref_ph" style="text-transform:uppercase; letter-spacing:0.05em; padding-right:2.6rem;" />
+          <span id="refStatus" style="position:absolute; right:1rem; top:50%; transform:translateY(-50%); font-size:1.1rem; display:none;"></span>
+        </div>
+        <p class="form-hint" id="refHint" style="display:none;"></p>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" id="regBtn" style="margin-top:0.5rem;" data-i18n="auth_btn_register">
+        Buat Akun
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      <span data-i18n="auth_has_account">Sudah punya akun?</span> <a href="/login" data-i18n="auth_login_link">Masuk sekarang →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  if (localStorage.getItem('token')) window.location.href = '/products';
+
+  // Live referral code validation
+  const refInput  = document.getElementById('refCode');
+  const refStatus = document.getElementById('refStatus');
+  const refHint   = document.getElementById('refHint');
+  let refTimer = null;
+
+  function setRefState(state, msg) {
+      refStatus.style.display = 'inline';
+      refHint.style.display   = msg ? 'block' : 'none';
+      refHint.innerHTML       = msg || '';
+      if (state === 'ok') {
+          refStatus.textContent   = '✅';
+          refInput.style.borderColor  = 'var(--green, #22c55e)';
+          refHint.style.color     = 'var(--green, #22c55e)';
+      } else if (state === 'err') {
+          refStatus.textContent   = '❌';
+          refInput.style.borderColor  = 'var(--danger, #f87171)';
+          refHint.style.color     = 'var(--danger, #f87171)';
+      } else {
+          refStatus.textContent   = '⏳';
+          refInput.style.borderColor  = '';
+          refHint.style.color     = 'var(--muted)';
+      }
+  }
+
+  function buildRefMsg(username, discountType, discountValue) {
+      let msg = '✔ Kode valid — diundang oleh <b>' + username + '</b>';
+      if (discountValue > 0) {
+          const disc = discountType === 'percentage'
+              ? discountValue + '%'
+              : 'Rp ' + Number(discountValue).toLocaleString('id-ID');
+          msg += ' 🎁 <b>Kamu dapat diskon ' + disc + '</b> di setiap pembelian!';
+      }
+      return msg;
+  }
+
+  function clearRefState() {
+      refStatus.style.display    = 'none';
+      refHint.style.display      = 'none';
+      refInput.style.borderColor = '';
+  }
+
+  // Pre-fill from URL ?ref= and validate
+  const urlParams = new URLSearchParams(window.location.search);
+  const refFromUrl = urlParams.get('ref');
+  if (refFromUrl) {
+      refInput.value    = refFromUrl.toUpperCase();
+      refInput.readOnly = true;
+      refInput.style.fontWeight = '600';
+      setRefState('loading', 'Memeriksa kode...');
+      fetch('/api/affiliate/check/' + encodeURIComponent(refFromUrl.toUpperCase()))
+          .then(r => r.json())
+          .then(data => {
+              if (data.found) setRefState('ok', buildRefMsg(data.username, data.discount_type, data.discount_value));
+              else            setRefState('err', 'Kode referral tidak ditemukan');
+          }).catch(() => clearRefState());
+  }
+
+  refInput.addEventListener('input', function() {
+      const pos = this.selectionStart;
+      this.value = this.value.toUpperCase();
+      this.setSelectionRange(pos, pos);
+
+      clearTimeout(refTimer);
+      const code = this.value.trim();
+      if (!code) { clearRefState(); return; }
+
+      setRefState('loading', 'Memeriksa kode...');
+      refTimer = setTimeout(async () => {
+          try {
+              const res  = await fetch('/api/affiliate/check/' + encodeURIComponent(code));
+              const data = await res.json();
+              if (data.found) {
+                  setRefState('ok', buildRefMsg(data.username, data.discount_type, data.discount_value));
+              } else {
+                  setRefState('err', 'Kode referral tidak ditemukan');
+              }
+          } catch {
+              clearRefState();
+          }
+      }, 500);
+  });
+
+  document.getElementById('regForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username  = document.getElementById('username').value.trim();
+    const email     = document.getElementById('email').value.trim();
+    const password  = document.getElementById('password').value;
+    const confirmPw = document.getElementById('confirm').value;
+    const whatsapp  = document.getElementById('whatsapp').value.trim();
+    const ref       = document.getElementById('refCode').value.trim();
+    const alertDiv  = document.getElementById('alertMsg');
+    const btn      = document.getElementById('regBtn');
+
+    alertDiv.style.display = 'none';
+
+    if (password !== confirmPw) {
+      alertDiv.className = 'alert alert-danger';
+      alertDiv.textContent = t('auth_pw_mismatch');
+      alertDiv.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = t('bal_processing');
+
+    try {
+      const res  = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password, whatsapp: whatsapp || undefined, ref: ref || undefined })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        alertDiv.className = 'alert alert-success';
+        alertDiv.textContent = t('auth_reg_success');
+        alertDiv.style.display = 'block';
+        setTimeout(() => { window.location.href = '/login'; }, 1500);
+      } else {
+        alertDiv.className = 'alert alert-danger';
+        alertDiv.textContent = data.message || t('auth_login_fail');
+        alertDiv.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = t('auth_btn_register');
+      }
+    } catch {
+      alertDiv.className = 'alert alert-danger';
+      alertDiv.textContent = t('bal_topup_error');
+      alertDiv.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = t('auth_btn_register');
+    }
+  });
+</script>
+<script src="/js/translations.js"></script>
+<script src="/js/theme-lang.js"></script>
+<script src="/js/support-widget.js"></script>
+</body>
+</html>

@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="prd_title">Produk — Langganin</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" type="image/png" href="/images/logo.png" />
+  <script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);var l=localStorage.getItem('lang');if(l)document.documentElement.setAttribute('lang',l);})()</script>
+  <style>
+    @media (max-width: 768px) {
+      .page-header.d-flex { flex-direction: column; align-items: stretch !important; }
+      .page-header h1 { font-size: 1.3rem !important; margin-bottom: 0 !important; }
+      #searchInput { width: 100% !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a href="/" class="navbar-brand"><img src="/images/logo.png" alt="Langganin" style="height: 28px; width: auto; margin-right: 0.5rem; vertical-align: middle;"> <em>Langganin</em></a>
+  <div class="navbar-menu" id="navMenu">
+    <a href="/products" class="active" data-i18n="nav_products">Produk</a>
+    <a href="/orders" id="navOrders" style="display:none" data-i18n="nav_orders">Pesanan</a>
+    <a href="/balance" id="navBalanceLink" style="display:none" data-i18n="nav_balance">Saldo</a>
+    <span class="nav-balance" id="navBalanceVal" style="display:none">Rp 0</span>
+    <a href="/affiliate" id="navAffiliate" style="display:none" data-i18n="nav_affiliate">🤝 Affiliate</a>
+    <a href="/admin" id="navAdmin" style="display:none" class="badge badge-purple" data-i18n="nav_admin">Admin</a>
+    <a href="/login"    id="navLogin"  class="btn btn-primary btn-sm" data-i18n="nav_login">Masuk</a>
+    <a href="/register" id="navReg"    class="btn btn-outline btn-sm" data-i18n="nav_register">Daftar</a>
+    <button class="btn btn-sm btn-danger" id="navLogout" style="display:none" onclick="logout()" data-i18n="nav_logout">Keluar</button>
+  </div>
+  <button class="nav-toggle" id="navToggle" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- MAIN -->
+<main class="page">
+  <div class="container">
+    <div class="page-header d-flex ai-center jc-between" style="flex-wrap:wrap; gap:1rem;">
+      <div>
+        <h1 class="page-header" style="margin-bottom:0;" data-i18n="prd_heading">Produk Digital</h1>
+        <p style="color:var(--muted); margin-top:0.25rem; font-size:0.88rem;" data-i18n="prd_subtitle">Pilih produk, klik beli, saldo langsung terpotong.</p>
+      </div>
+      <div style="display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;">
+        <input type="text" class="form-input" id="searchInput" data-i18n-placeholder="prd_search" placeholder="🔍 Cari produk..." style="width:220px; max-width:100%;" oninput="filterProducts()" />
+        <button class="btn btn-secondary btn-sm" onclick="syncProducts()" id="syncBtn" title="Sync produk dari supplier" data-i18n="prd_sync">↻ Sync</button>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-wrap" id="loadWrap">
+      <div class="spinner"></div>
+      <span data-i18n="prd_loading">Memuat produk...</span>
+    </div>
+
+    <!-- Error -->
+    <div id="errorMsg" class="alert alert-danger" style="display:none;"></div>
+
+    <!-- Grid -->
+    <div class="products-grid" id="productsGrid" style="display:none;"></div>
+
+    <!-- Empty -->
+    <div class="empty-state" id="emptyState" style="display:none;">
+      <div class="e-icon">📦</div>
+      <h3 data-i18n="prd_no_products">Tidak ada produk</h3>
+      <p data-i18n="prd_no_products_d">Coba sync produk atau cari dengan kata kunci lain.</p>
+    </div>
+  </div>
+</main>
+
+<!-- VARIANT POPUP MODAL -->
+<div class="vmodal" id="variantModal">
+  <div class="vmodal-box">
+    <div class="vmodal-header">
+      <div>
+        <div class="vmodal-title" id="vmodalTitle"></div>
+        <div class="vmodal-cat"   id="vmodalCat"></div>
+      </div>
+      <button class="vmodal-close" onclick="closeVariantModal()">✕</button>
+    </div>
+    <div class="vmodal-desc" id="vmodalDesc" style="display:none;"></div>
+    <div class="vmodal-body" id="vmodalBody"></div>
+  </div>
+</div>
+
+<!-- ORDER CONFIRM MODAL -->
+<div class="modal" id="orderModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 data-i18n="prd_confirm_title">Konfirmasi Pembelian</h3>
+      <button class="modal-close" onclick="closeOrderModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const token = localStorage.getItem('token');
+  // Allow access without login - user can view products but can't buy
+
+  let allProducts    = [];
+  let currentVariant = null;
+  let isAdmin        = false;
+  let currentUser    = null;
+
+  // ── Init ──
+  document.addEventListener('DOMContentLoaded', () => {
+    if (token) {
+      // Show logged-in nav items
+      document.getElementById('navOrders').style.display = '';
+      document.getElementById('navBalanceLink').style.display = '';
+      document.getElementById('navBalanceVal').style.display = '';
+      document.getElementById('navAffiliate').style.display = '';
+      document.getElementById('navLogout').style.display = '';
+      document.getElementById('navLogin').style.display = 'none';
+      document.getElementById('navReg').style.display = 'none';
+      loadProfile();
+    } else {
+      // Show login/register, hide logged-in items
+      document.getElementById('navAdmin').style.display = 'none';
+    }
+    loadProducts();
+    document.getElementById('navToggle').addEventListener('click', () => {
+      document.getElementById('navMenu').classList.toggle('open');
+    });
+    document.querySelectorAll('#navMenu a').forEach(link => {
+      link.addEventListener('click', () => {
+        document.getElementById('navMenu').classList.remove('open');
+      });
+    });
+    // close variant modal on backdrop click
+    document.getElementById('variantModal').addEventListener('click', e => {
+      if (e.target === e.currentTarget) closeVariantModal();
+    });
+    // close order modal on backdrop click
+    document.getElementById('orderModal').addEventListener('click', e => {
+      if (e.target === e.currentTarget) closeOrderModal();
+    });
+    // ESC key closes topmost modal
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        if (document.getElementById('orderModal').classList.contains('active')) closeOrderModal();
+        else closeVariantModal();
+      }
+    });
+    // Re-render when language changes
+    document.addEventListener('langChanged', () => { if (allProducts.length) renderProducts(allProducts); });
+  });
+
+  async function loadProfile() {
+    if (!token) return; // Skip if not logged in
+    try {
+      const r = await fetch('/api/auth/profile', { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      if (d.success) {
+        currentUser = d.data;
+        document.getElementById('navBalanceVal').textContent = 'Rp ' + Number(d.data.balance).toLocaleString('id-ID');
+        isAdmin = !!d.data.is_admin;
+        if (isAdmin) document.getElementById('navAdmin').style.display = '';
+      } else { logout(); }
+    } catch (err) { 
+      console.error('Failed to load profile:', err);
+      // Don't force logout, just log the error
+    }
+  }
+
+  // ── Load products ──
+  async function loadProducts() {
+    show('loadWrap'); hide('productsGrid'); hide('errorMsg'); hide('emptyState');
+    try {
+      const headers = {};
+      if (token) headers.Authorization = 'Bearer ' + token;
+      
+      const r = await fetch('/api/products', { headers });
+      const d = await r.json();
+      if (d.success) {
+        allProducts = d.data;
+        renderProducts(allProducts);
+      } else throw new Error(d.message);
+    } catch (err) {
+      hide('loadWrap');
+      show('errorMsg');
+      document.getElementById('errorMsg').textContent = t('prd_load_fail') + err.message;
+    }
+  }
+
+  async function syncProducts() {
+    const btn = document.getElementById('syncBtn');
+    btn.disabled = true; btn.textContent = '↻ Sync...';
+    try {
+      const r = await fetch('/api/products/sync', { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      toast(d.success ? t('prd_sync_success') : ('Gagal: ' + d.message), d.success ? 'success' : 'error');
+      if (d.success) loadProducts();
+    } catch { toast(t('prd_sync_fail'), 'error'); }
+    finally { btn.disabled = false; btn.textContent = t('prd_sync'); }
+  }
+
+  // ── Render compact product cards ──
+  function renderProducts(products) {
+    hide('loadWrap');
+    if (!products.length) { show('emptyState'); hide('productsGrid'); return; }
+    hide('emptyState'); show('productsGrid');
+
+    const grid = document.getElementById('productsGrid');
+    grid.innerHTML = products.map(p => {
+      const variants = (p.variants || []).filter(v => v.id);
+      if (!variants.length) return '';
+      const varCount = variants.length;
+      // cheapest available price
+      const avail = variants.filter(v => v.stock > 0);
+      const minPrice = avail.length
+        ? Math.min(...avail.map(v => v.sell_price || v.our_price))
+        : null;
+      const pid = encodeURIComponent(p.name);
+      // Product image
+      const imageHtml = p.image_url 
+        ? `<div class="product-image"><img src="${esc(p.image_url)}" alt="${esc(p.name)}" onerror="this.parentElement.style.display='none'"></div>` 
+        : '';
+      return `
+        <div class="product-card" onclick="openVariantModal(${allProducts.indexOf(p)})">
+          ${imageHtml}
+          <div class="product-cat">${esc(p.category || 'Digital')}</div>
+          <div class="product-name">${esc(p.name)}</div>
+          ${p.description ? `<div class="product-desc">${esc(p.description)}</div>` : ''}
+          <div class="product-footer">
+            <span class="variant-count">${varCount} ${t('prd_variant_count')}</span>
+            ${minPrice !== null
+              ? `<span class="product-price-from">${t('prd_price_from')} <strong>Rp ${Number(minPrice).toLocaleString('id-ID')}</strong></span>`
+              : `<span class="product-price-from" style="color:var(--red)">${t('prd_out_of_stock')}</span>`}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ── Open variant popup ──
+  function openVariantModal(idx) {
+    const p = allProducts[idx];
+    if (!p) return;
+    const variants = (p.variants || []).filter(v => v.id);
+
+    document.getElementById('vmodalTitle').textContent = p.name;
+    document.getElementById('vmodalCat').textContent   = p.category || 'Digital';
+
+    const descEl = document.getElementById('vmodalDesc');
+    if (p.description) {
+      descEl.textContent = p.description;
+      descEl.style.display = '';
+    } else {
+      descEl.style.display = 'none';
+    }
+
+    document.getElementById('vmodalBody').innerHTML = variants.map(v => {
+      const sellPrice  = v.sell_price || v.our_price;
+      const origPrice  = v.original_price;
+      const outOfStock = v.stock === 0;
+      
+      // Buat harga "normal" pura-pura (30% lebih tinggi untuk kesan diskon)
+      const fakeNormalPrice = Math.round(sellPrice * 1.3);
+      const discountPercent = Math.round(((fakeNormalPrice - sellPrice) / fakeNormalPrice) * 100);
+      
+      // Show different button for logged in vs not logged in users
+      let buttonHtml;
+      if (!token) {
+        buttonHtml = `<a href="/login" class="btn-buy" style="text-align:center; text-decoration:none;">${t('prd_login_to_buy')}</a>`;
+      } else if (outOfStock) {
+        buttonHtml = `<button class="btn-buy" disabled>${t('prd_out_of_stock')}</button>`;
+      } else {
+        buttonHtml = `<button class="btn-buy" onclick="openOrderModal('${v.id}', '${esc(p.name)} — ${esc(v.name)}', ${sellPrice}, ${origPrice || 0})">${t('prd_btn_buy')}</button>`;
+      }
+      
+      return `
+        <div class="variant-item">
+          <div class="variant-name">${esc(v.name)}</div>
+          <div class="variant-meta">
+            ${v.duration ? `<span>⏱ ${esc(v.duration)}</span>` : ''}
+            ${v.warranty ? `<span>🛡 ${esc(v.warranty)}</span>` : ''}
+            <span ${outOfStock ? 'style="color:var(--red)"' : ''}>📦 ${t('prd_stock')}: ${v.stock}</span>
+            <span style="background:rgba(239,68,68,0.1); color:#ef4444; font-weight:700; padding:2px 8px; border-radius:4px;">🔥 ${discountPercent}% OFF</span>
+          </div>
+          <div class="variant-row">
+            <div class="price-group">
+              <span class="price-sell">Rp ${Number(sellPrice).toLocaleString('id-ID')}</span>
+              <span class="price-original">Rp ${Number(fakeNormalPrice).toLocaleString('id-ID')}</span>
+            </div>
+            ${buttonHtml}
+          </div>
+        </div>`;
+    }).join('');;
+
+    document.getElementById('variantModal').classList.add('active');
+  }
+
+  function closeVariantModal() {
+    document.getElementById('variantModal').classList.remove('active');
+  }
+
+  function filterProducts() {
+    const q = document.getElementById('searchInput').value.toLowerCase().trim();
+    if (!q) { renderProducts(allProducts); return; }
+    const filtered = allProducts.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.category || '').toLowerCase().includes(q) ||
+      (p.variants || []).some(v => v.name.toLowerCase().includes(q))
+    );
+    renderProducts(filtered);
+  }
+
+  // ── Order Confirm Modal ──
+  function openOrderModal(variantId, name, sellPrice, origPrice) {
+    // Check if user is logged in
+    if (!token) {
+      toast(t('prd_login_first'), 'info');
+      setTimeout(() => { window.location.href = '/login'; }, 1500);
+      return;
+    }
+    
+    currentVariant = { id: variantId, price: sellPrice };
+
+    // Harga normal pura-pura untuk kesan diskon
+    const fakeNormalPrice = Math.round(sellPrice * 1.3);
+    const discountPercent = Math.round(((fakeNormalPrice - sellPrice) / fakeNormalPrice) * 100);
+    
+    const priceBlock = isAdmin
+      ? `<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1rem;">
+          <div style="background:rgba(52,211,153,0.06); border:1px solid rgba(52,211,153,0.18); border-radius:10px; padding:0.9rem;">
+            <div style="font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.35rem;">${t('prd_sell_price')}</div>
+            <div style="font-size:1.2rem; font-weight:900; color:var(--green);">Rp ${Number(sellPrice).toLocaleString('id-ID')}</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:10px; padding:0.9rem;">
+            <div style="font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.35rem;">${t('prd_cost_price')}</div>
+            <div style="font-size:1.2rem; font-weight:900; color:var(--muted);">Rp ${Number(origPrice).toLocaleString('id-ID')}</div>
+          </div>
+        </div>`
+      : `<div style="background:rgba(239,68,68,0.05); border:1px solid rgba(239,68,68,0.15); border-radius:10px; padding:1rem; margin-bottom:1rem;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
+            <span style="font-size:0.8rem; color:var(--muted); text-decoration:line-through;">Rp ${Number(fakeNormalPrice).toLocaleString('id-ID')}</span>
+            <span style="background:rgba(239,68,68,0.15); color:#ef4444; font-size:0.75rem; font-weight:700; padding:2px 8px; border-radius:4px;">🔥 ${discountPercent}% OFF</span>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem;">
+            <div style="font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;">${t('prd_promo_price')}</div>
+            <div style="font-size:1.5rem; font-weight:900; color:#ef4444;">Rp ${Number(sellPrice).toLocaleString('id-ID')}</div>
+          </div>
+        </div>`;
+
+    document.getElementById('modalBody').innerHTML = `
+      <div style="margin-bottom:1.25rem;">
+        <div style="font-weight:700; font-size:1rem; margin-bottom:0.75rem;">${esc(name)}</div>
+        ${priceBlock}
+      </div>
+      <div class="form-group">
+        <label class="form-label">${t('prd_qty')}</label>
+        <input type="number" class="form-input" id="qty" value="1" min="1" max="50" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">${t('prd_whatsapp')}</label>
+        <input type="text" class="form-input" id="whatsappNumber" placeholder="${t('prd_whatsapp_ph')}" value="${currentUser && currentUser.whatsapp ? esc(currentUser.whatsapp) : ''}" required />
+        <div class="form-hint">${t('prd_whatsapp_hint')}</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">${t('prd_voucher')} <span style="color:var(--muted); font-weight:400; text-transform:none;">${t('prd_voucher_opt')}</span></label>
+        <input type="text" class="form-input" id="voucher" placeholder="${t('prd_voucher_ph')}" />
+      </div>
+      <div id="orderAlert" class="alert" style="display:none; margin-bottom:1rem;"></div>
+      <div style="display:flex; gap:0.75rem;">
+        <button class="btn btn-secondary btn-full" onclick="closeOrderModal()">${t('btn_cancel')}</button>
+        <button class="btn btn-primary btn-full" id="confirmBtn" onclick="submitOrder()">${t('prd_btn_confirm')}</button>
+      </div>`;
+    document.getElementById('orderModal').classList.add('active');
+  }
+
+  function closeOrderModal() {
+    document.getElementById('orderModal').classList.remove('active');
+    currentVariant = null;
+  }
+
+  async function submitOrder() {
+    const qty     = parseInt(document.getElementById('qty').value) || 1;
+    const whatsapp = document.getElementById('whatsappNumber').value.trim();
+    const voucher = document.getElementById('voucher').value.trim();
+    const alertEl = document.getElementById('orderAlert');
+    const btn     = document.getElementById('confirmBtn');
+
+    // Validate WhatsApp number
+    if (!whatsapp) {
+      alertEl.className = 'alert alert-danger';
+      alertEl.textContent = t('prd_wa_required');
+      alertEl.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true; btn.textContent = t('processing');
+    alertEl.style.display = 'none';
+
+    try {
+      const r = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ 
+          variant_id: currentVariant.id, 
+          quantity: qty, 
+          buyer_whatsapp: whatsapp,
+          voucher_code: voucher || undefined 
+        })
+      });
+      const d = await r.json();
+      if (d.success) {
+        closeOrderModal();
+        closeVariantModal();
+        toast(t('prd_order_success') + ' ' + d.data.order_id, 'success');
+        loadProfile();
+        setTimeout(() => { window.location.href = '/orders'; }, 1500);
+      } else {
+        alertEl.className = 'alert alert-danger';
+        alertEl.textContent = d.message;
+        alertEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = t('prd_btn_confirm');
+      }
+    } catch {
+      alertEl.className = 'alert alert-danger';
+      alertEl.textContent = t('error_generic');
+      alertEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = t('prd_btn_confirm');
+    }
+  }
+
+  // ── Utils ──
+  function show(id) { const el = document.getElementById(id); if (el) el.style.display = ''; }
+  function hide(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
+  function esc(s)   { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function logout() { localStorage.removeItem('token'); window.location.href = '/login'; }
+  function toast(msg, type = 'info') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`;
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3500);
+  }
+</script>
+<script src="/js/translations.js"></script>
+<script src="/js/theme-lang.js"></script>
+<script src="/js/support-widget.js"></script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="idx_title">Langganin — Langganan Digital Terbaik</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" type="image/png" href="/images/logo.png" />
+  <script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);var l=localStorage.getItem('lang');if(l)document.documentElement.setAttribute('lang',l);})()</script>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a href="/" class="navbar-brand"><img src="/images/logo.png" alt="Langganin" style="height: 28px; width: auto; margin-right: 0.5rem; vertical-align: middle;"> <em>Langganin</em></a>
+  <div class="navbar-menu" id="navMenu">
+    <a href="/products" data-i18n="nav_products">Produk</a>
+    <a href="/orders" id="navOrders" style="display:none" data-i18n="nav_orders">Pesanan</a>
+    <a href="/balance" id="navBalance" style="display:none" data-i18n="nav_balance">Saldo</a>
+    <span class="nav-balance" id="navBalanceVal" style="display:none">Rp 0</span>
+    <a href="/affiliate" id="navAffiliate" style="display:none" data-i18n="nav_affiliate">🤝 Affiliate</a>
+    <a href="/login"    id="navLogin"  class="btn btn-primary btn-sm" data-i18n="nav_login">Masuk</a>
+    <a href="/register" id="navReg"    class="btn btn-outline btn-sm" data-i18n="nav_register">Daftar</a>
+    <button class="btn btn-sm btn-danger" id="navLogout" style="display:none" onclick="logout()" data-i18n="nav_logout">Keluar</button>
+  </div>
+  <button class="nav-toggle" id="navToggle" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow" data-i18n="idx_hero_eyebrow">✨ Platform Langganan Digital #1</div>
+    <h1><span data-i18n="idx_hero_title_1">Semua Langganan Premium</span><br><em data-i18n="idx_hero_title_2">Harga Terjangkau</em></h1>
+    <p class="hero-sub" data-i18n="idx_hero_sub">Netflix, Spotify, Canva Pro, YouTube Premium, dan ratusan layanan digital lainnya. Sistem otomatis, proses cepat, harga transparan.</p>
+    <div class="hero-cta">
+      <a href="/products" class="btn btn-primary btn-lg" data-i18n="idx_cta_explore">Jelajahi Produk 🚀</a>
+      <a href="/register" class="btn btn-outline btn-lg" data-i18n="idx_cta_register">Daftar Sekarang</a>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features">
+  <div class="container">
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon fi-purple">⚡</div>
+        <h3 data-i18n="idx_feat_instant">Proses Instan</h3>
+        <p data-i18n="idx_feat_instant_d">Order otomatis diproses dalam hitungan detik. Dapat akun langsung tanpa menunggu.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon fi-green">💰</div>
+        <h3 data-i18n="idx_feat_price">Harga Terbaik</h3>
+        <p data-i18n="idx_feat_price_d">Harga paling kompetitif di Indonesia. Hemat hingga 70% dibanding langganan resmi.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon fi-yellow">🛡️</div>
+        <h3 data-i18n="idx_feat_safe">Aman & Terpercaya</h3>
+        <p data-i18n="idx_feat_safe_d">Sistem pembayaran aman dengan Midtrans. Garansi untuk semua produk yang dibeli.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon fi-blue">💳</div>
+        <h3 data-i18n="idx_feat_topup">Top Up & Withdraw</h3>
+        <p data-i18n="idx_feat_topup_d">Top up saldo dengan berbagai metode. Bisa tarik dana kapan saja dengan mudah.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section class="stats-section">
+  <div class="container">
+    <div class="stats-row-hero">
+      <div>
+        <div class="stat-num" id="sProducts">0</div>
+        <div class="stat-lbl" data-i18n="idx_stat_products">Produk Tersedia</div>
+      </div>
+      <div>
+        <div class="stat-num" id="sOrders">0</div>
+        <div class="stat-lbl" data-i18n="idx_stat_orders">Order Sukses</div>
+      </div>
+      <div>
+        <div class="stat-num" id="sUsers">0</div>
+        <div class="stat-lbl" data-i18n="idx_stat_users">Pengguna Aktif</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p data-i18n="idx_footer">© 2026 Langganin. Dibuat dengan ❤️</p>
+</footer>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const token = localStorage.getItem('token');
+
+  // Navbar state
+  if (token) {
+    document.getElementById('navOrders').style.display = '';
+    document.getElementById('navBalance').style.display = '';
+    document.getElementById('navBalanceVal').style.display = '';
+    document.getElementById('navAffiliate').style.display = '';
+    document.getElementById('navLogout').style.display = '';
+    document.getElementById('navLogin').style.display = 'none';
+    document.getElementById('navReg').style.display = 'none';
+    fetch('/api/auth/profile', { headers: { Authorization: 'Bearer ' + token } })
+      .then(r => r.json()).then(d => {
+        if (d.success) {
+          document.getElementById('navBalanceVal').textContent = 'Rp ' + Number(d.data.balance).toLocaleString('id-ID');
+        }
+      }).catch(() => {});
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    window.location.href = '/';
+  }
+
+  // Mobile nav toggle
+  document.getElementById('navToggle').addEventListener('click', () => {
+    document.getElementById('navMenu').classList.toggle('open');
+  });
+  document.querySelectorAll('#navMenu a').forEach(link => {
+    link.addEventListener('click', () => {
+      document.getElementById('navMenu').classList.remove('open');
+    });
+  });
+
+  // Animated counters
+  function animCount(el, target, duration = 1500) {
+    let start = 0;
+    const step = Math.ceil(target / (duration / 30));
+    const t = setInterval(() => {
+      start = Math.min(start + step, target);
+      el.textContent = start.toLocaleString('id-ID') + '+';
+      if (start >= target) clearInterval(t);
+    }, 30);
+  }
+
+  // Trigger when visible
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        animCount(document.getElementById('sProducts'), 50);
+        animCount(document.getElementById('sOrders'), 1000);
+        animCount(document.getElementById('sUsers'), 500);
+        obs.disconnect();
+      }
+    });
+  });
+  obs.observe(document.querySelector('.stats-section'));
+</script>
+<script src="/js/translations.js"></script>
+<script src="/js/theme-lang.js"></script>
+<script src="/js/support-widget.js"></script>
+</body>
+</html>

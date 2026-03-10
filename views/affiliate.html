@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="aff_title">Affiliate — Langganin</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" type="image/png" href="/images/logo.png" />
+  <script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);var l=localStorage.getItem('lang');if(l)document.documentElement.setAttribute('lang',l);})()</script>
+  <style>
+    .aff-hero {
+      position: relative; overflow: hidden;
+      background: linear-gradient(140deg, rgba(247,151,30,0.14) 0%, rgba(124,109,240,0.08) 55%, rgba(13,13,26,0) 100%);
+      border: 1px solid rgba(247,151,30,0.22); border-radius: 20px;
+      padding: 2.25rem 2.5rem; margin-bottom: 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1.75rem;
+    }
+    .aff-hero::before {
+      content:''; position:absolute; top:-80px; right:-80px;
+      width:280px; height:280px; border-radius:50%;
+      background:radial-gradient(circle,rgba(247,151,30,0.15),transparent 68%);
+      pointer-events:none;
+    }
+    .aff-hero-left { position:relative; z-index:1; }
+    .aff-hero-eyebrow {
+      font-size:0.68rem; font-weight:700; color:#f7971e;
+      text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.55rem;
+      display:flex; align-items:center; gap:0.4rem;
+    }
+    .aff-hero-eyebrow::before {
+      content:''; display:inline-block; width:6px; height:6px; border-radius:50%;
+      background:#f7971e; box-shadow:0 0 8px #f7971e; animation:pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(1.4);} }
+    .aff-hero-amount {
+      font-size:clamp(2.2rem,6vw,3.2rem); font-weight:900; letter-spacing:-0.05em;
+      color:var(--text); line-height:1; display:flex; align-items:baseline; gap:0.4rem;
+    }
+    .aff-hero-amount .currency { font-size:1.2rem; font-weight:700; color:var(--muted); }
+    .aff-hero-amount .amount-val { color:#f7971e; }
+    .aff-hero-sub { font-size:0.8rem; color:var(--muted); margin-top:0.7rem; }
+
+    .aff-stat-grid {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+      gap:0.85rem; margin-bottom:1.75rem;
+    }
+    .aff-stat-card {
+      background:var(--bg2); border:1px solid var(--border);
+      border-radius:16px; padding:1.1rem 1.25rem;
+      transition:var(--trans); position:relative; overflow:hidden;
+    }
+    .aff-stat-card:hover { border-color:var(--border2); transform:translateY(-2px); }
+    .aff-stat-label {
+      font-size:0.68rem; font-weight:700; color:var(--muted);
+      text-transform:uppercase; letter-spacing:0.07em; margin-bottom:0.45rem;
+    }
+    .aff-stat-val { font-size:1.4rem; font-weight:900; line-height:1; }
+    .aff-stat-val.orange { color:#f7971e; }
+    .aff-stat-val.green { color:var(--green); }
+    .aff-stat-val.blue { color:var(--blue); }
+    .aff-stat-val.purple { color:var(--accent); }
+
+    .section-card {
+      background:var(--bg2); border:1px solid var(--border);
+      border-radius:18px; padding:1.5rem; margin-bottom:1.5rem;
+    }
+    .section-card-title {
+      font-size:0.9rem; font-weight:700; margin-bottom:1.25rem;
+      display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+    }
+
+    .ref-code-box {
+      display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;
+      background:rgba(247,151,30,0.08); border:1px solid rgba(247,151,30,0.2);
+      border-radius:12px; padding:1rem 1.25rem; margin-bottom:1rem;
+    }
+    .ref-code {
+      font-family:monospace; font-size:1.3rem; font-weight:900; color:#f7971e;
+      letter-spacing:0.05em;
+    }
+    .ref-link {
+      font-size:0.82rem; color:var(--muted); word-break:break-all;
+    }
+    .btn-copy {
+      padding:0.5rem 1rem; border-radius:8px; border:1px solid rgba(247,151,30,0.3);
+      background:rgba(247,151,30,0.12); color:#f7971e; cursor:pointer;
+      font-size:0.82rem; font-weight:600; transition:all .2s;
+    }
+    .btn-copy:hover { background:rgba(247,151,30,0.25); }
+
+    .activate-box {
+      text-align:center; padding:3rem 1rem;
+      background:rgba(247,151,30,0.04); border:1px dashed rgba(247,151,30,0.2);
+      border-radius:16px;
+    }
+    .activate-box .icon { font-size:3rem; margin-bottom:1rem; }
+    .activate-box p { color:var(--muted); margin-bottom:1.5rem; font-size:0.9rem; line-height:1.6; }
+    .btn-activate {
+      padding:0.75rem 2rem; border-radius:10px; border:none;
+      background:linear-gradient(135deg,#f7971e,#ffd200); color:#1a1a2e;
+      font-size:0.95rem; font-weight:700; cursor:pointer; transition:all .2s;
+    }
+    .btn-activate:hover { opacity:0.85; transform:translateY(-2px); }
+
+    .referral-table { width:100%; border-collapse:collapse; }
+    .referral-table th {
+      padding:0.7rem 1rem; text-align:left;
+      color:var(--muted); font-size:0.75rem;
+      text-transform:uppercase; letter-spacing:0.05em;
+      border-bottom:1px solid var(--border);
+    }
+    .referral-table td {
+      padding:0.75rem 1rem; border-bottom:1px solid var(--border);
+      font-size:0.88rem;
+    }
+
+    .comm-row {
+      display:grid; grid-template-columns:1fr 1fr auto;
+      gap:0.5rem; padding:0.85rem 1rem;
+      border-bottom:1px solid var(--border); align-items:center;
+    }
+    .comm-row:last-child { border-bottom:none; }
+
+    .wd-form { display:grid; gap:1rem; max-width:500px; }
+    .wd-form label { font-size:0.82rem; color:var(--muted); font-weight:600; }
+    .wd-form input, .wd-form select {
+      padding:0.75rem 1rem; background:var(--bg2); border:1px solid var(--border);
+      border-radius:10px; color:var(--text); font-size:0.9rem; width:100%; box-sizing:border-box;
+    }
+    .wd-form input:focus, .wd-form select:focus { outline:none; border-color:var(--accent); }
+
+    .wd-row {
+      display:grid; grid-template-columns:auto 1fr auto auto;
+      gap:0.75rem; padding:0.85rem 1rem;
+      border-bottom:1px solid var(--border); align-items:center;
+      font-size:0.85rem;
+    }
+    .wd-row:last-child { border-bottom:none; }
+
+    .status-badge {
+      padding:2px 10px; border-radius:20px; font-size:0.72rem; font-weight:700;
+      display:inline-block;
+    }
+    .status-pending { background:rgba(251,191,36,0.15); color:#fbbf24; }
+    .status-approved { background:rgba(52,211,153,0.15); color:#34d399; }
+    .status-completed { background:rgba(96,165,250,0.15); color:#60a5fa; }
+    .status-rejected { background:rgba(248,113,113,0.15); color:#f87171; }
+    .status-paid { background:rgba(52,211,153,0.15); color:#34d399; }
+
+    .info-box {
+      background:rgba(124,109,240,0.06); border:1px solid rgba(124,109,240,0.15);
+      border-radius:12px; padding:1.25rem; margin-bottom:1.5rem;
+      font-size:0.88rem; line-height:1.8; color:var(--muted);
+    }
+    .info-box strong { color:var(--text); }
+
+    .empty-state { text-align:center; padding:2rem; color:var(--muted); }
+    .empty-state .icon { font-size:2.5rem; margin-bottom:0.75rem; }
+
+    .aff-tabs {
+      display:flex; gap:0.5rem; margin-bottom:1.5rem; flex-wrap:wrap;
+    }
+    .aff-tab-btn {
+      padding:0.55rem 1.2rem; border-radius:10px;
+      background:rgba(255,255,255,0.04); border:1px solid var(--border);
+      color:var(--muted); font-size:0.85rem; font-weight:600;
+      cursor:pointer; transition:all .2s;
+    }
+    .aff-tab-btn.active {
+      background:rgba(247,151,30,0.12); border-color:rgba(247,151,30,0.3); color:#f7971e;
+    }
+    .aff-tab-panel { display:none; }
+    .aff-tab-panel.active { display:block; }
+
+    @media(max-width:768px) {
+      .aff-hero { padding:1.25rem; }
+      .aff-hero-amount { font-size:2rem; }
+      .aff-stat-grid { grid-template-columns:repeat(2,1fr); }
+      .comm-row { grid-template-columns:1fr; gap:0.25rem; }
+      .wd-row { grid-template-columns:1fr; gap:0.25rem; }
+      .ref-code-box { flex-direction:column; align-items:flex-start; }
+      .referral-table { min-width:500px; }
+    }
+  </style>
+</head>
+<body>
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a href="/" class="navbar-brand"><img src="/images/logo.png" alt="Langganin" style="height: 28px; width: auto; margin-right: 0.5rem; vertical-align: middle;"> <em>Langganin</em></a>
+  <div class="navbar-menu" id="navMenu">
+    <a href="/products" data-i18n="nav_products">Produk</a>
+    <a href="/orders" id="navOrders" style="display:none" data-i18n="nav_orders">Pesanan</a>
+    <a href="/balance" id="navBalanceLink" style="display:none" data-i18n="nav_balance">Saldo</a>
+    <span class="nav-balance" id="navBalanceVal" style="display:none">Rp 0</span>
+    <a href="/affiliate" id="navAffiliate" class="active" data-i18n="nav_affiliate">🤝 Affiliate</a>
+    <a href="/admin" id="navAdmin" style="display:none" class="badge badge-purple" data-i18n="nav_admin">Admin</a>
+    <a href="/login"    id="navLogin"  class="btn btn-primary btn-sm" data-i18n="nav_login">Masuk</a>
+    <a href="/register" id="navReg"    class="btn btn-outline btn-sm" data-i18n="nav_register">Daftar</a>
+    <button class="btn btn-sm btn-danger" id="navLogout" style="display:none" onclick="logout()" data-i18n="nav_logout">Keluar</button>
+  </div>
+  <button class="nav-toggle" id="navToggle" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- MAIN -->
+<main class="page">
+  <div class="container" style="max-width:960px; margin:0 auto; padding:1.5rem;">
+
+    <!-- Hero -->
+    <div class="aff-hero" id="affHero">
+      <div class="aff-hero-left">
+        <div class="aff-hero-eyebrow" data-i18n="aff_hero_eyebrow">🤝 Affiliate Program</div>
+        <div class="aff-hero-amount">
+          <span class="currency">Rp</span>
+          <span class="amount-val" id="affBalance">0</span>
+        </div>
+        <div class="aff-hero-sub" data-i18n="aff_hero_sub">Saldo komisi affiliate kamu</div>
+      </div>
+      <div style="display:flex; gap:0.75rem; flex-wrap:wrap; position:relative; z-index:1;">
+        <button class="btn btn-primary btn-sm" onclick="showAffTab('withdraw')" data-i18n="aff_btn_withdraw">💸 Tarik Komisi</button>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="affLoading" style="text-align:center; padding:3rem; color:var(--muted);">
+      <div style="font-size:2rem; margin-bottom:0.5rem;">⏳</div>
+      <div data-i18n="loading">Memuat...</div>
+    </div>
+
+    <!-- Not activated -->
+    <div id="affActivate" style="display:none;">
+      <div class="activate-box">
+        <div class="icon">🤝</div>
+        <h2 style="color:var(--text); margin-bottom:0.5rem;" data-i18n="aff_activate_title">Gabung Program Affiliate</h2>
+        <p data-i18n="aff_activate_desc">Dapatkan komisi setiap kali referral kamu melakukan pembelian. Bagikan link referral dan mulai dapatkan penghasilan pasif!</p>
+        <div class="info-box" style="text-align:left; max-width:500px; margin:0 auto 1.5rem;">
+          <strong data-i18n="aff_how_title">Cara Kerja:</strong><br>
+          <span data-i18n="aff_how_1">1. Aktifkan affiliate & dapatkan kode referral unik</span><br>
+          <span data-i18n="aff_how_2">2. Bagikan link referral ke teman-teman kamu</span><br>
+          <span data-i18n="aff_how_3">3. Mereka mendaftar menggunakan link kamu</span><br>
+          <span data-i18n="aff_how_4">4. Setiap mereka beli produk, kamu dapat komisi!</span><br>
+          <span id="commissionInfo"></span>
+        </div>
+        <button class="btn-activate" onclick="activateAffiliate()" data-i18n="aff_btn_activate">🚀 Aktifkan Sekarang</button>
+      </div>
+    </div>
+
+    <!-- Activated content -->
+    <div id="affContent" style="display:none;">
+      <!-- Referral Code Box -->
+      <div class="section-card">
+        <div class="section-card-title">
+          <span>🔗 <span data-i18n="aff_ref_code">Kode & Link Referral</span></span>
+        </div>
+        <div class="ref-code-box">
+          <div>
+            <div style="font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.3rem;" data-i18n="aff_your_code">Kode Referral Kamu</div>
+            <div class="ref-code" id="refCode">—</div>
+          </div>
+          <div style="flex:1; min-width:200px;">
+            <div style="font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.3rem;" data-i18n="aff_your_link">Link Referral</div>
+            <div class="ref-link" id="refLink">—</div>
+          </div>
+          <div style="display:flex; gap:0.5rem;">
+            <button class="btn-copy" onclick="copyRefCode()" data-i18n="aff_copy_code">📋 Salin Kode</button>
+            <button class="btn-copy" onclick="copyRefLink()" data-i18n="aff_copy_link">🔗 Salin Link</button>
+          </div>
+        </div>
+        <div id="commissionRate" style="font-size:0.82rem; color:var(--muted);"></div>
+      </div>
+
+      <!-- Stats -->
+      <div class="aff-stat-grid" id="affStats">
+        <div class="aff-stat-card">
+          <div class="aff-stat-label" data-i18n="aff_stat_referrals">Total Referral</div>
+          <div class="aff-stat-val purple" id="statReferrals">0</div>
+        </div>
+        <div class="aff-stat-card">
+          <div class="aff-stat-label" data-i18n="aff_stat_earned">Total Komisi</div>
+          <div class="aff-stat-val orange" id="statEarned">Rp 0</div>
+        </div>
+        <div class="aff-stat-card">
+          <div class="aff-stat-label" data-i18n="aff_stat_balance">Saldo Tersedia</div>
+          <div class="aff-stat-val green" id="statBalance">Rp 0</div>
+        </div>
+        <div class="aff-stat-card">
+          <div class="aff-stat-label" data-i18n="aff_stat_withdrawn">Total Ditarik</div>
+          <div class="aff-stat-val blue" id="statWithdrawn">Rp 0</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="aff-tabs">
+        <button class="aff-tab-btn active" onclick="showAffTab('referrals')" data-i18n="aff_tab_referrals">👥 Referral Saya</button>
+        <button class="aff-tab-btn" onclick="showAffTab('commissions')" data-i18n="aff_tab_commissions">💰 Riwayat Komisi</button>
+        <button class="aff-tab-btn" onclick="showAffTab('withdraw')" data-i18n="aff_tab_withdraw">💸 Penarikan</button>
+      </div>
+
+      <!-- Tab: Referrals -->
+      <div class="aff-tab-panel active" id="tab-referrals">
+        <div class="section-card">
+          <div style="overflow-x:auto;">
+            <table class="referral-table">
+              <thead>
+                <tr>
+                  <th data-i18n="aff_col_user">User</th>
+                  <th data-i18n="aff_col_joined">Bergabung</th>
+                  <th data-i18n="aff_col_orders">Order</th>
+                  <th data-i18n="aff_col_commission">Komisi</th>
+                </tr>
+              </thead>
+              <tbody id="referralsTbody">
+                <tr><td colspan="4" class="empty-state"><div class="icon">⏳</div><span data-i18n="loading">Memuat...</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Commissions -->
+      <div class="aff-tab-panel" id="tab-commissions">
+        <div class="section-card" id="commissionsContainer">
+          <div class="empty-state"><div class="icon">⏳</div><span data-i18n="loading">Memuat...</span></div>
+        </div>
+      </div>
+
+      <!-- Tab: Withdraw -->
+      <div class="aff-tab-panel" id="tab-withdraw">
+        <div class="section-card">
+          <div class="section-card-title">
+            <span>💸 <span data-i18n="aff_wd_title">Tarik Komisi Affiliate</span></span>
+          </div>
+          <div id="wdMinInfo" style="font-size:0.82rem; color:var(--muted); margin-bottom:1rem;"></div>
+          <form class="wd-form" id="wdForm" onsubmit="submitWithdrawal(event)">
+            <div>
+              <label data-i18n="aff_wd_amount">Jumlah Penarikan (Rp)</label>
+              <input type="number" id="wdAmount" min="1" required placeholder="Min. Rp 10.000" />
+            </div>
+            <div>
+              <label data-i18n="aff_wd_bank">Bank / E-Wallet</label>
+              <input type="text" id="wdBank" required placeholder="BCA, BNI, GoPay, DANA, dll" />
+            </div>
+            <div>
+              <label data-i18n="aff_wd_accnum">Nomor Rekening</label>
+              <input type="text" id="wdAccNum" required placeholder="1234567890" />
+            </div>
+            <div>
+              <label data-i18n="aff_wd_accname">Nama Pemilik</label>
+              <input type="text" id="wdAccName" required placeholder="Nama sesuai rekening" />
+            </div>
+            <button type="submit" class="btn btn-primary" id="wdBtn" data-i18n="aff_wd_submit">Ajukan Penarikan</button>
+          </form>
+        </div>
+
+        <div class="section-card" style="margin-top:1rem;">
+          <div class="section-card-title">
+            <span>📋 <span data-i18n="aff_wd_history">Riwayat Penarikan</span></span>
+          </div>
+          <div id="wdHistory">
+            <div class="empty-state"><div class="icon">⏳</div><span data-i18n="loading">Memuat...</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const API_BASE = '/api';
+let token = localStorage.getItem('token');
+let affData = null;
+
+function logout() { localStorage.removeItem('token'); window.location.href = '/login'; }
+
+window.addEventListener('DOMContentLoaded', async () => {
+    if (!token) { window.location.href = '/login'; return; }
+    document.getElementById('navOrders').style.display = '';
+    document.getElementById('navBalanceLink').style.display = '';
+    document.getElementById('navBalanceVal').style.display = '';
+    document.getElementById('navAffiliate').style.display = '';
+    document.getElementById('navLogout').style.display = '';
+    document.getElementById('navLogin').style.display = 'none';
+    document.getElementById('navReg').style.display = 'none';
+    document.getElementById('navToggle').addEventListener('click', () => {
+        document.getElementById('navMenu').classList.toggle('open');
+    });
+    document.querySelectorAll('#navMenu a').forEach(link => {
+        link.addEventListener('click', () => {
+            document.getElementById('navMenu').classList.remove('open');
+        });
+    });
+    await loadDashboard();
+});
+
+async function fetchAPI(endpoint, options = {}) {
+    try {
+        const res = await fetch(API_BASE + endpoint, {
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...options.headers },
+            ...options
+        });
+        return await res.json();
+    } catch(e) { console.error(e); return null; }
+}
+
+async function loadDashboard() {
+    document.getElementById('affLoading').style.display = 'block';
+    document.getElementById('affActivate').style.display = 'none';
+    document.getElementById('affContent').style.display = 'none';
+
+    const res = await fetchAPI('/affiliate/dashboard');
+    document.getElementById('affLoading').style.display = 'none';
+
+    if (!res || !res.success) {
+        document.getElementById('affActivate').style.display = 'block';
+        // Show commission info
+        const settingsRes = await fetchAPI('/affiliate/settings');
+        if (settingsRes?.success) {
+            const s = settingsRes.data;
+            const rateText = s.commission_type === 'percentage' 
+                ? `💰 ${t('aff_comm_rate')}: ${s.commission_value}% ${t('aff_per_order')}` 
+                : `💰 ${t('aff_comm_rate')}: Rp ${Number(s.commission_value).toLocaleString('id-ID')} ${t('aff_per_order')}`;
+            document.getElementById('commissionInfo').innerHTML = `<br><strong style="color:#f7971e;">${rateText}</strong>`;
+        }
+        return;
+    }
+
+    affData = res.data;
+
+    if (!affData.affiliate_code) {
+        document.getElementById('affActivate').style.display = 'block';
+        const s = affData.settings;
+        const rateText = s.commission_type === 'percentage' 
+            ? `💰 ${t('aff_comm_rate')}: ${s.commission_value}% ${t('aff_per_order')}` 
+            : `💰 ${t('aff_comm_rate')}: Rp ${Number(s.commission_value).toLocaleString('id-ID')} ${t('aff_per_order')}`;
+        document.getElementById('commissionInfo').innerHTML = `<br><strong style="color:#f7971e;">${rateText}</strong>`;
+        return;
+    }
+
+    // Show content
+    document.getElementById('affContent').style.display = 'block';
+
+    // Populate
+    document.getElementById('affBalance').textContent = Number(affData.affiliate_balance).toLocaleString('id-ID');
+    document.getElementById('refCode').textContent = affData.affiliate_code;
+    document.getElementById('refLink').textContent = window.location.origin + '/register?ref=' + affData.affiliate_code;
+
+    const s = affData.settings;
+    const rateText = s.commission_type === 'percentage' 
+        ? `${t('aff_comm_rate')}: ${s.commission_value}% ${t('aff_from_each_order')}` 
+        : `${t('aff_comm_rate')}: Rp ${Number(s.commission_value).toLocaleString('id-ID')} ${t('aff_per_order')}`;
+    document.getElementById('commissionRate').innerHTML = '💰 ' + rateText;
+
+    document.getElementById('wdMinInfo').textContent = `${t('aff_wd_min_info')}: Rp ${Number(s.min_withdrawal).toLocaleString('id-ID')}`;
+
+    if (affData.stats) {
+        document.getElementById('statReferrals').textContent = affData.stats.total_referrals;
+        document.getElementById('statEarned').textContent = 'Rp ' + Number(affData.stats.total_earned).toLocaleString('id-ID');
+        document.getElementById('statBalance').textContent = 'Rp ' + Number(affData.stats.current_balance).toLocaleString('id-ID');
+        document.getElementById('statWithdrawn').textContent = 'Rp ' + Number(affData.stats.total_withdrawn).toLocaleString('id-ID');
+    }
+
+    // Load tabs data
+    loadReferrals();
+    loadCommissions();
+    loadWithdrawals();
+}
+
+async function activateAffiliate() {
+    const res = await fetchAPI('/affiliate/activate', { method: 'POST' });
+    if (res?.success) {
+        showToast(t('aff_activated_msg'), 'success');
+        await loadDashboard();
+    } else {
+        showToast(res?.message || t('error_generic'), 'error');
+    }
+}
+
+function showAffTab(name) {
+    document.querySelectorAll('.aff-tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.aff-tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.target.classList.add('active');
+}
+
+async function loadReferrals() {
+    const res = await fetchAPI('/affiliate/referrals');
+    const tbody = document.getElementById('referralsTbody');
+    if (!res?.success || !res.data.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="empty-state"><div class="icon">👥</div>${t('aff_no_referrals')}</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = res.data.map(r => `
+        <tr>
+            <td>
+                <div style="font-weight:600;">${escHtml(r.username)}</div>
+                <div style="font-size:0.75rem; color:var(--muted);">${escHtml(r.email)}</div>
+            </td>
+            <td style="color:var(--muted); font-size:0.82rem;">${new Date(r.created_at).toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric'})}</td>
+            <td style="font-weight:600;">${r.total_orders}</td>
+            <td style="color:#f7971e; font-weight:700;">Rp ${Number(r.total_commission).toLocaleString('id-ID')}</td>
+        </tr>
+    `).join('');
+}
+
+async function loadCommissions() {
+    const res = await fetchAPI('/affiliate/commissions');
+    const container = document.getElementById('commissionsContainer');
+    if (!res?.success || !res.data.length) {
+        container.innerHTML = `<div class="empty-state"><div class="icon">💰</div>${t('aff_no_commissions')}</div>`;
+        return;
+    }
+    container.innerHTML = res.data.map(c => `
+        <div class="comm-row">
+            <div>
+                <div style="font-weight:600; font-size:0.88rem;">${escHtml(c.referred_username || '—')}</div>
+                <div style="font-size:0.72rem; color:var(--muted);">${c.order_id || '—'}</div>
+            </div>
+            <div style="font-size:0.82rem; color:var(--muted);">
+                ${t('aff_order_amount')}: Rp ${Number(c.order_amount).toLocaleString('id-ID')}
+                <br>${new Date(c.created_at).toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric'})}
+            </div>
+            <div style="text-align:right;">
+                <div style="color:#f7971e; font-weight:700; font-size:1rem;">+Rp ${Number(c.commission_amount).toLocaleString('id-ID')}</div>
+                <span class="status-badge status-${c.status}">${c.status}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function loadWithdrawals() {
+    const res = await fetchAPI('/affiliate/withdrawals');
+    const container = document.getElementById('wdHistory');
+    if (!res?.success || !res.data.length) {
+        container.innerHTML = `<div class="empty-state"><div class="icon">📭</div>${t('aff_no_withdrawals')}</div>`;
+        return;
+    }
+    container.innerHTML = res.data.map(w => `
+        <div class="wd-row">
+            <div>
+                <span class="status-badge status-${w.status}">${w.status}</span>
+            </div>
+            <div>
+                <div style="font-weight:700; color:var(--text);">Rp ${Number(w.amount).toLocaleString('id-ID')}</div>
+                <div style="font-size:0.75rem; color:var(--muted);">${escHtml(w.bank_name)} — ${escHtml(w.account_number)}</div>
+            </div>
+            <div style="font-size:0.78rem; color:var(--muted);">
+                ${new Date(w.created_at).toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric'})}
+            </div>
+            <div>
+                ${w.rejected_reason ? `<div style="font-size:0.72rem; color:#f87171;">${escHtml(w.rejected_reason)}</div>` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+async function submitWithdrawal(e) {
+    e.preventDefault();
+    const btn = document.getElementById('wdBtn');
+    btn.disabled = true;
+    btn.textContent = t('processing');
+
+    const res = await fetchAPI('/affiliate/withdraw', {
+        method: 'POST',
+        body: JSON.stringify({
+            amount: parseFloat(document.getElementById('wdAmount').value),
+            bank_name: document.getElementById('wdBank').value.trim(),
+            account_number: document.getElementById('wdAccNum').value.trim(),
+            account_name: document.getElementById('wdAccName').value.trim()
+        })
+    });
+
+    btn.disabled = false;
+    btn.textContent = t('aff_wd_submit');
+
+    if (res?.success) {
+        showToast(t('aff_wd_success'), 'success');
+        document.getElementById('wdForm').reset();
+        loadDashboard();
+    } else {
+        showToast(res?.message || t('error_generic'), 'error');
+    }
+}
+
+function copyRefCode() {
+    const code = document.getElementById('refCode').textContent;
+    navigator.clipboard.writeText(code).then(() => showToast(t('aff_copied_code'), 'success'));
+}
+
+function copyRefLink() {
+    const link = document.getElementById('refLink').textContent;
+    navigator.clipboard.writeText(link).then(() => showToast(t('aff_copied_link'), 'success'));
+}
+
+function escHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function showToast(msg, type = 'success') {
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.style.cssText = 'position:fixed;bottom:2rem;right:2rem;padding:1rem 1.5rem;border-radius:12px;color:#fff;font-size:0.9rem;font-weight:500;z-index:9999;animation:slideUp .3s ease;max-width:320px;';
+    if (type === 'success') el.style.background = 'linear-gradient(135deg,#11998e,#38ef7d)';
+    else el.style.background = 'linear-gradient(135deg,#c0392b,#f5576c)';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+}
+</script>
+<script src="/js/translations.js"></script>
+<script src="/js/theme-lang.js"></script>
+</body>
+</html>

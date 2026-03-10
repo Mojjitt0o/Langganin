@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="inv_title">Invoice Top Up - Langganin</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" type="image/png" href="/images/logo.png">
+    <!-- Snap.js loaded dynamically based on server config -->
+    <script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);var l=localStorage.getItem('lang');if(l)document.documentElement.setAttribute('lang',l);})()</script>
+    <style>
+        body {
+            position: relative;
+            min-height: 100vh;
+        }
+        .invoice-page-bg {
+            position: fixed; inset: 0; pointer-events: none; z-index: 0;
+            background:
+                radial-gradient(ellipse 60% 40% at 0% 10%,  rgba(124,109,240,0.09) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 35% at 100% 80%, rgba(52,211,153,0.06) 0%, transparent 55%);
+        }
+        .invoice-container {
+            position: relative;
+            z-index: 1;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            transition: var(--trans);
+        }
+        .back-link:hover {
+            color: var(--green);
+            transform: translateX(-3px);
+        }
+        .invoice-card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .invoice-header {
+            background: linear-gradient(140deg, rgba(124,109,240,0.14) 0%, rgba(52,211,153,0.06) 55%, rgba(13,13,26,0) 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 2.5rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .invoice-header::before {
+            content: '';
+            position: absolute; top: -60px; right: -60px;
+            width: 200px; height: 200px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(124,109,240,0.15), transparent 70%);
+            pointer-events: none;
+        }
+        .invoice-header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: var(--text);
+            letter-spacing: -0.035em;
+            position: relative;
+            z-index: 1;
+        }
+        .invoice-header .subtitle {
+            margin-top: 0.5rem;
+            color: var(--muted);
+            font-size: 0.9rem;
+            position: relative;
+            z-index: 1;
+        }
+        .invoice-body {
+            padding: 2.5rem 2rem;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.6rem 1.5rem;
+            border-radius: 25px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-bottom: 2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status-pending {
+            background: rgba(251,191,36,0.15);
+            color: #f59e0b;
+            border: 2px solid rgba(251,191,36,0.3);
+        }
+        .status-success {
+            background: rgba(52,211,153,0.15);
+            color: var(--green);
+            border: 2px solid rgba(52,211,153,0.3);
+        }
+        .status-failed {
+            background: rgba(248,113,113,0.15);
+            color: #f87171;
+            border: 2px solid rgba(248,113,113,0.3);
+        }
+        .status-expired {
+            background: rgba(156,163,175,0.15);
+            color: #9ca3af;
+            border: 2px solid rgba(156,163,175,0.3);
+        }
+        .info-grid {
+            display: grid;
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .info-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .info-label {
+            color: var(--muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .info-value {
+            color: var(--text);
+            font-weight: 700;
+            font-size: 0.95rem;
+            text-align: right;
+        }
+        .invoice-total {
+            background: linear-gradient(135deg, rgba(124,109,240,0.12), rgba(52,211,153,0.08));
+            padding: 2rem;
+            border-radius: 16px;
+            margin: 2rem 0;
+            border: 1px solid rgba(124,109,240,0.2);
+            text-align: center;
+        }
+        .invoice-total .total-label {
+            color: var(--muted);
+            font-size: 0.85rem;
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .invoice-total .total-value {
+            color: var(--green);
+            font-size: 2.5rem;
+            font-weight: 900;
+            letter-spacing: -0.035em;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        .btn {
+            flex: 1;
+            padding: 1rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: var(--trans);
+            text-decoration: none;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(124,109,240,1) 0%, rgba(167,139,250,1) 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(124,109,240,0.4);
+        }
+        .btn-secondary {
+            background: rgba(255,255,255,0.05);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: var(--border2);
+        }
+        .payment-info {
+            background: rgba(251,191,36,0.1);
+            border: 2px dashed rgba(251,191,36,0.3);
+            border-radius: 14px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .payment-info h3 {
+            margin: 0 0 1rem 0;
+            color: #f59e0b;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        .payment-info p {
+            margin: 0.5rem 0;
+            color: #92400e;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        .loading-state {
+            text-align: center;
+            padding: 4rem 1rem;
+            color: var(--muted);
+        }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(124,109,240,0.2);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .invoice-footer {
+            background: rgba(255,255,255,0.02);
+            padding: 1.5rem 2rem;
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.8rem;
+            border-top: 1px solid var(--border);
+        }
+
+        /* ===== RESPONSIVE INVOICE ===== */
+        @media (max-width: 768px) {
+            .invoice-container { padding: 1rem 0.75rem; }
+            .invoice-header { padding: 1.5rem 1rem; }
+            .invoice-header h1 { font-size: 1.3rem; }
+            .invoice-body { padding: 1.5rem 1rem; }
+            .invoice-total .total-value { font-size: 1.8rem; }
+            .invoice-total { padding: 1.25rem; }
+            .action-buttons { flex-direction: column; }
+            .action-buttons .btn { width: 100%; }
+            .info-row { flex-direction: column; align-items: flex-start; gap: 0.25rem; }
+            .info-value { text-align: left; word-break: break-all; }
+            .invoice-footer { padding: 1rem; }
+            .payment-info { padding: 1rem; }
+        }
+        @media (max-width: 480px) {
+            .invoice-container { padding: 0.75rem 0.5rem; }
+            .invoice-header { padding: 1.25rem 0.85rem; }
+            .invoice-header h1 { font-size: 1.1rem; }
+            .invoice-body { padding: 1rem 0.85rem; }
+            .invoice-total .total-value { font-size: 1.5rem; }
+            .invoice-total { padding: 1rem; margin: 1.25rem 0; }
+            .status-badge { padding: 0.5rem 1rem; font-size: 0.78rem; }
+            .invoice-footer { font-size: 0.75rem; padding: 0.85rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="invoice-page-bg"></div>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+    <a href="/" class="navbar-brand"><img src="/images/logo.png" alt="Langganin" style="height: 28px; width: auto; margin-right: 0.5rem; vertical-align: middle;"> <em>Langganin</em></a>
+    <button class="nav-toggle" id="navToggle" onclick="document.getElementById('navMenu').classList.toggle('open')">
+        <span></span><span></span><span></span>
+    </button>
+    <div class="navbar-menu" id="navMenu">
+        <a href="/products" data-i18n="nav_products">Produk</a>
+        <a href="/orders" data-i18n="nav_orders">Pesanan</a>
+        <a href="/balance" data-i18n="nav_balance">Saldo</a>
+        <span class="nav-balance" id="navBalanceVal">Rp 0</span>
+        <a href="/login"    id="navLogin"  class="btn btn-primary btn-sm" style="display:none" data-i18n="nav_login">Masuk</a>
+        <a href="/register" id="navReg"    class="btn btn-outline btn-sm" style="display:none" data-i18n="nav_register">Daftar</a>
+        <button class="btn btn-sm btn-danger" id="navLogout" onclick="logout()" data-i18n="nav_logout">Keluar</button>
+    </div>
+</nav>
+
+<div class="invoice-container">
+    <a href="/balance" class="back-link" data-i18n="inv_back">← Kembali ke Balance</a>
+    
+    <div class="invoice-card">
+        <div class="invoice-header">
+            <h1 data-i18n="inv_heading">🧾 Invoice Top Up</h1>
+            <p class="subtitle" data-i18n="inv_subtitle">Langganin - Sistem Top Up Saldo</p>
+        </div>
+
+        <div class="invoice-body" id="invoiceContent">
+            <div class="loading-state">
+                <div class="loading-spinner"></div>
+                <p data-i18n="inv_loading">Memuat invoice...</p>
+            </div>
+        </div>
+
+        <div class="invoice-footer">
+            <div style="margin-bottom: 0.5rem; font-weight: 600; color: var(--text); font-size: 0.85rem;" data-i18n="inv_info_title">ℹ️ Informasi Penting</div>
+            <div style="line-height: 1.6;" data-i18n-html="inv_info_desc">Transaksi pembayaran diproses melalui <strong>TradeSmart HUB</strong> - payment gateway partner resmi kami yang menggunakan teknologi Midtrans. Semua transaksi dilakukan dengan sistem enkripsi tingkat tinggi dan aman.</div>
+            <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.05); font-size: 0.75rem; opacity: 0.7;" data-i18n="inv_powered">🛡️ Powered by Langganin & TradeSmart HUB</div>
+        </div>
+    </div>
+</div>
+
+    <script>
+        const API_BASE = '/api';
+        const token = localStorage.getItem('token');
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderId = urlParams.get('order_id');
+        let snapLoaded = false;
+
+        function logout() { localStorage.removeItem('token'); window.location.href = '/login'; }
+
+        // Close nav menu on link click (mobile)
+        document.querySelectorAll('#navMenu a').forEach(link => {
+            link.addEventListener('click', () => {
+                document.getElementById('navMenu').classList.remove('open');
+            });
+        });
+
+        // Dynamically load Midtrans Snap.js based on server config
+        async function loadMidtransSnap() {
+            try {
+                const res = await fetch(`${API_BASE}/topup/midtrans-config`);
+                const config = await res.json();
+                if (!config.success || !config.clientKey) return;
+
+                const snapUrl = config.isProduction
+                    ? 'https://app.midtrans.com/snap/snap.js'
+                    : 'https://app.sandbox.midtrans.com/snap/snap.js';
+
+                return new Promise((resolve) => {
+                    const script = document.createElement('script');
+                    script.src = snapUrl;
+                    script.setAttribute('data-client-key', config.clientKey);
+                    script.onload = () => { snapLoaded = true; resolve(true); };
+                    script.onerror = () => { console.error('Failed to load Snap.js'); resolve(false); };
+                    document.head.appendChild(script);
+                });
+            } catch (e) {
+                console.error('Failed to load Midtrans config:', e);
+                return false;
+            }
+        }
+
+        async function loadInvoice() {
+            if (!orderId) {
+                showError(t('inv_error_no_order'));
+                return;
+            }
+
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            // Load Midtrans Snap.js dynamically
+            await loadMidtransSnap();
+
+            try {
+                const res = await fetch(`${API_BASE}/topup/invoice/${orderId}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                const data = await res.json();
+
+                if (!data.success) {
+                    showError(data.message || t('inv_error_load'));
+                    return;
+                }
+
+                renderInvoice(data.data);
+            } catch (error) {
+                console.error('Load invoice error:', error);
+                showError(t('inv_cancel_error'));
+            }
+        }
+
+        function renderInvoice(invoice) {
+            const statusClass = {
+                'pending': 'status-pending',
+                'success': 'status-success',
+                'failed': 'status-failed',
+                'expired': 'status-expired',
+                'cancelled': 'status-expired'
+            }[invoice.status] || 'status-pending';
+
+            const statusText = {
+                'pending': t('inv_status_waiting'),
+                'success': t('inv_status_paid'),
+                'failed': t('inv_status_failed'),
+                'expired': t('inv_status_expired'),
+                'cancelled': t('inv_status_cancelled')
+            }[invoice.status] || invoice.status;
+
+            const createdDate = new Date(invoice.created_at);
+            const formattedDate = createdDate.toLocaleDateString('id-ID', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            let actionButtons = '';
+            if (invoice.status === 'pending' && invoice.snap_token) {
+                actionButtons = `
+                    <div class="payment-info">
+                        <h3>${t('inv_alert_pay')}</h3>
+                        <p>${t('inv_alert_pay_1')}</p>
+                        <p>${t('inv_alert_pay_2')}</p>
+                        <p>${t('inv_alert_pay_3')}</p>
+                    </div>
+                    <div class="action-buttons">
+                        <button onclick="payNow()" class="btn btn-primary">
+                            ${t('inv_btn_pay')}
+                        </button>
+                        <button onclick="cancelInvoice()" class="btn btn-secondary" style="border-color:rgba(239,68,68,0.3); color:var(--red);">
+                            ${t('inv_btn_cancel')}
+                        </button>
+                    </div>
+                    <p style="text-align:center; margin-top:0.75rem; font-size:0.8rem; color:var(--text-muted);">${t('inv_cancel_hint')}</p>
+                `;
+            } else if (invoice.status === 'success') {
+                actionButtons = `
+                    <div class="action-buttons">
+                        <a href="/balance" class="btn btn-primary">
+                            ${t('inv_btn_balance')}
+                        </a>
+                        <a href="/products" class="btn btn-secondary">
+                            ${t('inv_btn_shop')}
+                        </a>
+                    </div>
+                `;
+            } else if (invoice.status === 'expired') {
+                actionButtons = `
+                    <div class="payment-info" style="background:rgba(156,163,175,0.1); border-color:rgba(156,163,175,0.3);">
+                        <h3 style="color:#9ca3af;">${t('inv_alert_expired')}</h3>
+                        <p style="color:#6b7280;">${t('inv_alert_expired_d')}</p>
+                        <p style="color:#6b7280;">${t('inv_alert_expired_d2')}</p>
+                        <p style="color:#6b7280;">${t('inv_alert_expired_d3')}</p>
+                    </div>
+                    <div class="action-buttons">
+                        <a href="/balance" class="btn btn-primary">
+                            ${t('inv_btn_new_topup')}
+                        </a>
+                        <a href="/products" class="btn btn-secondary">
+                            ${t('inv_btn_shop')}
+                        </a>
+                    </div>
+                `;
+            } else if (invoice.status === 'cancelled') {
+                actionButtons = `
+                    <div class="payment-info" style="background:rgba(156,163,175,0.1); border-color:rgba(156,163,175,0.3);">
+                        <h3 style="color:#9ca3af;">${t('inv_alert_cancelled')}</h3>
+                        <p style="color:#6b7280;">${t('inv_alert_cancelled_d1')}</p>
+                        <p style="color:#6b7280;">${t('inv_alert_cancelled_d2')}</p>
+                    </div>
+                    <div class="action-buttons">
+                        <a href="/balance" class="btn btn-primary">
+                            ${t('inv_btn_new_topup')}
+                        </a>
+                        <a href="/products" class="btn btn-secondary">
+                            ${t('inv_btn_shop')}
+                        </a>
+                    </div>
+                `;
+            } else {
+                actionButtons = `
+                    <div class="action-buttons">
+                        <a href="/balance" class="btn btn-primary">
+                            ${t('inv_btn_retry')}
+                        </a>
+                    </div>
+                `;
+            }
+
+            const paymentInfo = invoice.payment_type 
+                ? `<div class="info-row">
+                    <div class="info-label">${t('inv_field_method')}</div>
+                    <div class="info-value">${escapeHtml(invoice.payment_type)}</div>
+                </div>` 
+                : '';
+
+            const settledInfo = invoice.settlement_time
+                ? `<div class="info-row">
+                    <div class="info-label">${t('inv_field_settlement')}</div>
+                    <div class="info-value">${new Date(invoice.settlement_time).toLocaleString('id-ID')}</div>
+                </div>`
+                : '';
+
+            document.getElementById('invoiceContent').innerHTML = `
+                <div style="text-align: center;">
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-row">
+                        <div class="info-label">${t('inv_field_id')}</div>
+                        <div class="info-value" style="font-family: monospace; font-size: 0.85rem;">${escapeHtml(invoice.order_id)}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">${t('inv_field_date')}</div>
+                        <div class="info-value">${formattedDate}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">${t('inv_field_user')}</div>
+                        <div class="info-value">${escapeHtml(invoice.username)}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">${t('inv_field_email')}</div>
+                        <div class="info-value">${escapeHtml(invoice.email)}</div>
+                    </div>
+                    ${paymentInfo}
+                    ${settledInfo}
+                </div>
+
+                <div class="invoice-total">
+                    <div class="total-label">${t('inv_total')}</div>
+                    <div class="total-value">Rp ${Number(invoice.amount).toLocaleString('id-ID')}</div>
+                </div>
+
+                ${actionButtons}
+            `;
+
+            // Store snap token and redirect url for later use
+            window.currentSnapToken = invoice.snap_token;
+            window.currentRedirectUrl = invoice.redirect_url;
+            
+            // Auto-open Snap popup ONLY for pending transactions
+            // Do NOT auto-open if user just came from expired transaction
+            const urlParams = new URLSearchParams(window.location.search);
+            const fromMidtrans = urlParams.get('from_midtrans');
+            
+            if (invoice.status === 'pending' && invoice.snap_token && !fromMidtrans) {
+                setTimeout(() => payNow(), 500);
+            }
+        }
+
+        function payNow() {
+            if (!snapLoaded || typeof snap === 'undefined') {
+                // Fallback: redirect to Midtrans payment page
+                if (window.currentRedirectUrl) {
+                    window.location.href = window.currentRedirectUrl;
+                    return;
+                }
+                alert(t('inv_snap_loading'));
+                return;
+            }
+            if (window.currentSnapToken) {
+                try {
+                    snap.pay(window.currentSnapToken, {
+                        onSuccess: function(result) {
+                            console.log('Payment success:', result);
+                            const currentUrl = new URL(window.location.href);
+                            currentUrl.searchParams.set('from_midtrans', '1');
+                            setTimeout(() => window.location.href = currentUrl.toString(), 1000);
+                        },
+                        onPending: function(result) {
+                            console.log('Payment pending:', result);
+                            const currentUrl = new URL(window.location.href);
+                            currentUrl.searchParams.set('from_midtrans', '1');
+                            setTimeout(() => window.location.href = currentUrl.toString(), 1000);
+                        },
+                        onError: function(result) {
+                            console.error('Payment error:', result);
+                            // Fallback to redirect URL
+                            if (window.currentRedirectUrl) {
+                                if (confirm(t('inv_snap_fail_open'))) {
+                                    window.location.href = window.currentRedirectUrl;
+                                }
+                            } else {
+                                alert(t('inv_snap_fail'));
+                            }
+                            const currentUrl = new URL(window.location.href);
+                            currentUrl.searchParams.set('from_midtrans', '1');
+                            window.history.replaceState({}, '', currentUrl);
+                        },
+                        onClose: function() {
+                            console.log('Payment popup closed');
+                            const currentUrl = new URL(window.location.href);
+                            currentUrl.searchParams.set('from_midtrans', '1');
+                            window.history.replaceState({}, '', currentUrl);
+                        }
+                    });
+                } catch (e) {
+                    console.error('Snap.pay error:', e);
+                    // Fallback to redirect URL
+                    if (window.currentRedirectUrl) {
+                        window.location.href = window.currentRedirectUrl;
+                    }
+                }
+            }
+        }
+
+        async function cancelInvoice() {
+            if (!confirm(t('inv_cancel_confirm'))) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/topup/cancel/${orderId}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    // Reload invoice to show cancelled state
+                    loadInvoice();
+                } else {
+                    alert(data.message || t('inv_cancel_fail'));
+                }
+            } catch (error) {
+                console.error('Cancel invoice error:', error);
+                alert(t('inv_cancel_error'));
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('invoiceContent').innerHTML = `
+                <div style="text-align: center; padding: 4rem 2rem; color: var(--text);">
+                    <div style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.5;">❌</div>
+                    <h3 style="margin: 0 0 0.5rem 0; color: #f87171; font-size: 1.3rem; font-weight: 700;">${escapeHtml(message)}</h3>
+                    <p style="color: var(--muted); margin-bottom: 2rem; font-size: 0.9rem;">${t('inv_error_desc')}</p>
+                    <a href="/balance" class="btn btn-primary" style="max-width: 300px; margin: 0 auto; display: inline-flex;">
+                        ${t('inv_back')}
+                    </a>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text || '';
+            return div.innerHTML;
+        }
+
+        // Load invoice on page load
+        window.addEventListener('DOMContentLoaded', loadInvoice);
+        document.addEventListener('langChanged', loadInvoice);
+    </script>
+<script src="/js/translations.js"></script>
+<script src="/js/theme-lang.js"></script>
+<script src="/js/support-widget.js"></script>
+</body>
+</html>

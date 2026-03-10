@@ -1,0 +1,1999 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-i18n="adm_title">Admin Panel – Langganin</title>
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
+    <script>
+      (function(){
+        var th = localStorage.getItem('theme') || 'light';
+        var ln = localStorage.getItem('lang')  || 'id';
+        document.documentElement.setAttribute('data-theme', th);
+        document.documentElement.setAttribute('lang', ln);
+      })();
+    </script>
+    <style>
+        /* ===== ADMIN CSS VARIABLES ===== */
+        :root {
+            --adm-bg: #f5f7fb;
+            --adm-bg2: #ffffff;
+            --adm-bg-card: rgba(0,0,0,0.03);
+            --adm-bg-card-hover: rgba(0,0,0,0.05);
+            --adm-bg-header: rgba(0,0,0,0.04);
+            --adm-bg-input: rgba(0,0,0,0.04);
+            --adm-border: rgba(0,0,0,0.1);
+            --adm-border-light: rgba(0,0,0,0.06);
+            --adm-text: #1e293b;
+            --adm-text-muted: rgba(0,0,0,0.5);
+            --adm-text-faint: rgba(0,0,0,0.3);
+            --adm-nav-bg: rgba(255,255,255,0.85);
+            --adm-nav-link: rgba(0,0,0,0.55);
+            --adm-hero-bg: linear-gradient(135deg, #e8eaf6 0%, #c5cae9 50%, #b2dfdb 100%);
+            --adm-hero-text: #1e293b;
+            --adm-hero-sub: rgba(0,0,0,0.55);
+            --adm-overlay-bg: rgba(0,0,0,0.3);
+            --adm-modal-bg: linear-gradient(135deg, #f5f5f5, #e8eaf6);
+            --adm-toast-shadow: rgba(0,0,0,0.15);
+            --adm-mobile-nav-bg: rgba(245,247,251,0.98);
+        }
+        [data-theme="dark"] {
+            --adm-bg: #0f0f23;
+            --adm-bg2: #1a1a3e;
+            --adm-bg-card: rgba(255,255,255,0.05);
+            --adm-bg-card-hover: rgba(255,255,255,0.03);
+            --adm-bg-header: rgba(255,255,255,0.05);
+            --adm-bg-input: rgba(255,255,255,0.07);
+            --adm-border: rgba(255,255,255,0.1);
+            --adm-border-light: rgba(255,255,255,0.05);
+            --adm-text: #fff;
+            --adm-text-muted: rgba(255,255,255,0.5);
+            --adm-text-faint: rgba(255,255,255,0.3);
+            --adm-nav-bg: rgba(0,0,0,0.3);
+            --adm-nav-link: rgba(255,255,255,0.6);
+            --adm-hero-bg: linear-gradient(135deg, #1a1a3e 0%, #2d1b69 50%, #11998e 100%);
+            --adm-hero-text: #fff;
+            --adm-hero-sub: rgba(255,255,255,0.6);
+            --adm-overlay-bg: rgba(0,0,0,0.6);
+            --adm-modal-bg: linear-gradient(135deg, #1e1e2e, #2a2a3e);
+            --adm-toast-shadow: rgba(0,0,0,0.4);
+            --adm-mobile-nav-bg: rgba(15,15,35,0.98);
+        }
+
+        /* ===== ADMIN PAGE SPECIFIC ===== */
+        body { background: var(--adm-bg); color: var(--adm-text); }
+
+        .admin-hero {
+            background: var(--adm-hero-bg);
+            padding: 2rem;
+            border-bottom: 1px solid var(--adm-border);
+        }
+        .admin-hero h1 { color: var(--adm-hero-text); font-size: 1.8rem; margin: 0; }
+        .admin-hero p  { color: var(--adm-hero-sub); margin: 4px 0 0; font-size: 0.95rem; }
+
+        .admin-tabs {
+            display: flex; gap: 0.5rem;
+            padding: 1.5rem 2rem 0;
+            border-bottom: 1px solid var(--adm-border);
+        }
+        .tab-btn {
+            padding: 0.6rem 1.4rem;
+            border-radius: 8px 8px 0 0;
+            background: var(--adm-bg-card);
+            color: var(--adm-text-muted);
+            border: 1px solid var(--adm-border);
+            border-bottom: none;
+            cursor: pointer; font-size: 0.95rem;
+            transition: all .2s;
+        }
+        .tab-btn.active {
+            background: var(--adm-bg-header);
+            color: var(--adm-text);
+            border-color: var(--adm-border);
+        }
+
+        .tab-panel { display: none; padding: 2rem; }
+        .tab-panel.active { display: block; }
+
+        /* ===== STAT CARDS ===== */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem; margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: var(--adm-bg-card);
+            border: 1px solid var(--adm-border);
+            border-radius: 12px; padding: 1.4rem;
+        }
+        .stat-label { color: var(--adm-text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: .05em; }
+        .stat-value { color: var(--adm-text); font-size: 1.6rem; font-weight: 700; margin-top: 6px; }
+        .stat-value.green  { color: #38ef7d; }
+        .stat-value.yellow { color: #f7971e; }
+        .stat-value.blue   { color: #4facfe; }
+        .stat-value.red    { color: #f5576c; }
+
+        /* ===== PRICE EDITOR ===== */
+        .search-bar {
+            display: flex; gap: 0.75rem; margin-bottom: 1.5rem;
+        }
+        .search-bar input {
+            flex: 1; padding: 0.75rem 1rem;
+            background: var(--adm-bg-input);
+            border: 1px solid var(--adm-border);
+            border-radius: 10px; color: var(--adm-text); font-size: 0.95rem;
+        }
+        .search-bar input::placeholder { color: var(--adm-text-faint); }
+        .search-bar input:focus { outline: none; border-color: #6c63ff; }
+
+        .product-section {
+            background: var(--adm-bg-card);
+            border: 1px solid var(--adm-border-light);
+            border-radius: 12px; margin-bottom: 1rem; overflow: hidden;
+        }
+        .product-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1rem 1.25rem;
+            background: var(--adm-bg-header);
+            cursor: pointer; user-select: none;
+        }
+        .product-header h3 { color: var(--adm-text); font-size: 1rem; margin: 0; }
+        .product-header .badge {
+            background: rgba(108,99,255,0.3); color: #a8a4ff;
+            padding: 2px 10px; border-radius: 20px; font-size: 0.78rem;
+        }
+        .product-header .toggle-icon { color: var(--adm-text-faint); transition: transform .2s; }
+        .product-header.open .toggle-icon { transform: rotate(180deg); }
+
+        .variants-table { width: 100%; border-collapse: collapse; }
+        .variants-table th {
+            padding: 0.7rem 1rem; text-align: left;
+            background: var(--adm-bg-card-hover);
+            color: var(--adm-text-faint); font-size: 0.78rem;
+            text-transform: uppercase; letter-spacing: .05em;
+            border-bottom: 1px solid var(--adm-border-light);
+        }
+        .variants-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--adm-border-light);
+            color: var(--adm-text); font-size: 0.9rem;
+            vertical-align: middle;
+        }
+        .variants-table tr:last-child td { border-bottom: none; }
+        .variants-table tr:hover td { background: var(--adm-bg-card-hover); }
+
+        .price-input-wrap { display: flex; gap: 0.5rem; align-items: center; }
+        .price-input {
+            width: 130px; padding: 0.45rem 0.75rem;
+            background: var(--adm-bg-input);
+            border: 1px solid var(--adm-border);
+            border-radius: 8px; color: var(--adm-text); font-size: 0.9rem;
+            transition: border-color .2s;
+        }
+        .price-input:focus { outline: none; border-color: #6c63ff; }
+        .price-input.custom { border-color: #f7971e; background: rgba(247,151,30,0.08); }
+
+        .btn-save {
+            padding: 0.45rem 0.9rem;
+            background: linear-gradient(135deg, #6c63ff, #4facfe);
+            color: #fff; border: none; border-radius: 8px;
+            cursor: pointer; font-size: 0.82rem; font-weight: 600;
+            transition: opacity .2s;
+        }
+        .btn-save:hover { opacity: 0.85; }
+        .btn-reset {
+            padding: 0.45rem 0.9rem;
+            background: var(--adm-bg-input);
+            color: var(--adm-text-muted); border: 1px solid var(--adm-border);
+            border-radius: 8px; cursor: pointer; font-size: 0.82rem;
+            transition: all .2s;
+        }
+        .btn-reset:hover { background: rgba(245,87,108,0.15); color: #f5576c; border-color: #f5576c; }
+
+        .profit-badge {
+            display: inline-block;
+            padding: 2px 8px; border-radius: 6px;
+            font-size: 0.8rem; font-weight: 600;
+        }
+        .profit-badge.pos { background: rgba(56,239,125,0.15); color: #38ef7d; }
+        .profit-badge.zero { background: var(--adm-bg-card); color: var(--adm-text-faint); }
+
+        .custom-tag {
+            font-size: 0.7rem; background: rgba(247,151,30,0.2);
+            color: #f7971e; padding: 1px 6px; border-radius: 4px;
+            margin-left: 4px;
+        }
+
+        /* ===== ORDERS TABLE ===== */
+        .orders-table-wrap { overflow-x: auto; }
+        .orders-table { width: 100%; border-collapse: collapse; min-width: 700px; }
+        .orders-table th {
+            padding: 0.8rem 1rem; text-align: left;
+            background: var(--adm-bg-header);
+            color: var(--adm-text-muted); font-size: 0.78rem;
+            text-transform: uppercase; letter-spacing: .05em;
+            border-bottom: 1px solid var(--adm-border);
+        }
+        .orders-table td {
+            padding: 0.8rem 1rem;
+            border-bottom: 1px solid var(--adm-border-light);
+            color: var(--adm-text); font-size: 0.88rem;
+        }
+        .orders-table tr:hover td { background: var(--adm-bg-card-hover); }
+        .status-badge {
+            padding: 2px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+        }
+        .status-success { background: rgba(56,239,125,0.15); color: #38ef7d; }
+        .status-processing { background: rgba(79,172,254,0.15); color: #4facfe; }
+        .status-pending { background: rgba(247,151,30,0.15); color: #f7971e; }
+        .status-failed { background: rgba(245,87,108,0.15); color: #f5576c; }
+
+        /* ===== LOADING / TOAST ===== */
+        .loading-overlay {
+            position: fixed; inset: 0;
+            background: var(--adm-overlay-bg); backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 9999;
+        }
+        .spinner {
+            width: 44px; height: 44px;
+            border: 3px solid var(--adm-border);
+            border-top-color: #6c63ff;
+            border-radius: 50%; animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .toast {
+            position: fixed; bottom: 2rem; right: 2rem;
+            padding: 1rem 1.5rem; border-radius: 12px;
+            color: #fff; font-size: 0.9rem; font-weight: 500;
+            z-index: 9999; animation: slideUp .3s ease;
+            max-width: 320px; box-shadow: 0 8px 32px var(--adm-toast-shadow);
+        }
+        .toast.success { background: linear-gradient(135deg, #11998e, #38ef7d); color: #0a2a1a; }
+        .toast.error   { background: linear-gradient(135deg, #c0392b, #f5576c); }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .empty-state {
+            text-align: center; padding: 3rem 1rem;
+            color: var(--adm-text-faint);
+        }
+        .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
+
+        /* ===== MARKUP SETTINGS ===== */
+        .settings-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem; margin-bottom: 2rem;
+        }
+        .settings-card {
+            background: var(--adm-bg-card);
+            border: 1px solid var(--adm-border);
+            border-radius: 12px; padding: 1.5rem;
+        }
+        .settings-card label { color: var(--adm-text-muted); font-size: 0.9rem; display: block; margin-bottom: 0.5rem; }
+        .settings-card .hint { color: var(--adm-text-faint); font-size: 0.78rem; margin-top: 0.4rem; }
+        .settings-input {
+            width: 100%; padding: 0.75rem 1rem;
+            background: var(--adm-bg-input);
+            border: 1px solid var(--adm-border);
+            border-radius: 10px; color: var(--adm-text); font-size: 1rem;
+            box-sizing: border-box;
+        }
+        .settings-input:focus { outline: none; border-color: #6c63ff; }
+
+        .nav-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1rem 2rem;
+            background: var(--adm-nav-bg); backdrop-filter: blur(10px);
+            position: sticky; top: 0; z-index: 100;
+            border-bottom: 1px solid var(--adm-border-light);
+        }
+        .nav-brand { color: var(--adm-text); font-size: 1.1rem; font-weight: 700; text-decoration: none; }
+        .nav-links { display: flex; gap: 1rem; align-items: center; }
+        .nav-links a { color: var(--adm-nav-link); text-decoration: none; font-size: 0.9rem; transition: color .2s; }
+        .nav-links a:hover { color: var(--adm-text); }
+        .nav-balance { background: rgba(56,239,125,0.15); color: #38ef7d; padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+
+        /* ===== RESPONSIVE ADMIN ===== */
+        .admin-nav-toggle {
+            display: none; flex-direction: column; gap: 5px; cursor: pointer;
+            padding: 8px; background: none; border: none; border-radius: 8px;
+        }
+        .admin-nav-toggle:hover { background: var(--adm-bg-card); }
+        .admin-nav-toggle span {
+            display: block; width: 22px; height: 2.5px;
+            background: var(--adm-text-muted); border-radius: 2px;
+        }
+
+        /* Mobile order card layout */
+        .admin-order-cards { display: none; }
+        .admin-order-card {
+            background: var(--adm-bg-card); border: 1px solid var(--adm-border);
+            border-radius: 12px; padding: 1rem; margin-bottom: 0.65rem;
+        }
+        .admin-order-card-top {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            margin-bottom: 0.5rem; gap: 0.5rem;
+        }
+        .admin-order-card-info { flex: 1; min-width: 0; }
+        .admin-order-card-info .product { font-weight: 700; color: var(--adm-text); font-size: 0.88rem; }
+        .admin-order-card-info .user { color: var(--adm-text-faint); font-size: 0.75rem; margin-top: 2px; }
+        .admin-order-card-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.25rem 0; font-size: 0.82rem;
+        }
+        .admin-order-card-row .lbl { color: var(--adm-text-faint); }
+        .admin-order-card-row .val { font-weight: 600; }
+        .admin-order-card-actions {
+            display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap;
+        }
+        .admin-order-card-actions button { flex: 1; min-width: 0; }
+
+        @media (max-width: 768px) {
+            .nav-bar { padding: 0.75rem 1rem; }
+            .nav-links {
+                display: none; position: absolute; top: 100%; left: 0; right: 0;
+                background: var(--adm-mobile-nav-bg); backdrop-filter: blur(12px);
+                flex-direction: column; padding: 0.75rem; gap: 0.25rem;
+                border-bottom: 1px solid var(--adm-border-light);
+                box-shadow: 0 10px 30px var(--adm-toast-shadow); z-index: 101;
+            }
+            .nav-links.open { display: flex; }
+            .nav-links a { padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.88rem; }
+            .nav-links a:hover { background: var(--adm-bg-card); }
+            .nav-balance { text-align: center; }
+            .admin-nav-toggle { display: flex; }
+            .admin-hero { padding: 1.25rem 1rem; }
+            .admin-hero h1 { font-size: 1.3rem; }
+            .admin-hero p { font-size: 0.82rem; }
+            .admin-tabs {
+                padding: 0.75rem 0.75rem 0;
+                overflow-x: auto; -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+            }
+            .admin-tabs::-webkit-scrollbar { display: none; }
+            .tab-btn { padding: 0.5rem 0.85rem; font-size: 0.78rem; white-space: nowrap; flex-shrink: 0; }
+            .tab-panel { padding: 0.85rem; }
+            .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 0.65rem; }
+            .stat-card { padding: 1rem; }
+            .stat-value { font-size: 1.3rem; }
+            .search-bar { flex-direction: column; }
+            .variants-table { min-width: 550px; }
+            .product-header h3 { font-size: 0.88rem; }
+            .settings-grid { grid-template-columns: 1fr; }
+            .price-input { width: 100px; }
+
+            /* Orders: hide table, show cards */
+            .orders-table-wrap { display: none !important; }
+            .admin-order-cards { display: block; }
+
+            /* Complete modal responsive */
+            #completeModal > div {
+                width: calc(100vw - 1.5rem) !important;
+                max-width: 420px !important;
+                padding: 1.25rem !important;
+            }
+            #completeModal .cm-field-row {
+                flex-direction: column !important;
+                gap: 0.35rem !important;
+            }
+            #completeModal .cm-field-row input { flex: none !important; width: 100% !important; }
+            #completeModal .cm-field-row button { align-self: flex-end; }
+        }
+        @media (max-width: 480px) {
+            .stat-grid { grid-template-columns: 1fr; }
+            .tab-btn { padding: 0.4rem 0.65rem; font-size: 0.72rem; }
+            .admin-hero h1 { font-size: 1.15rem; }
+            .tab-panel { padding: 0.65rem; }
+        }
+
+        /* Admin-scoped table overrides */
+        thead th {
+            background: var(--adm-bg-header) !important;
+            color: var(--adm-text-faint) !important;
+            border-bottom-color: var(--adm-border) !important;
+        }
+        tbody td {
+            color: var(--adm-text) !important;
+            border-bottom-color: var(--adm-border-light) !important;
+        }
+        tbody tr:hover td {
+            background: var(--adm-bg-card-hover) !important;
+        }
+
+        /* ===== LIGHT OVERRIDES for JS inline styles ===== */
+        [data-theme="light"] .tab-panel tr[style*="border-bottom"] td[style*="color:#fff"],
+        [data-theme="light"] .tab-panel tr[style*="border-bottom"] td[style*="color: #fff"] {
+            color: var(--adm-text) !important;
+        }
+        [data-theme="light"] .tab-panel tr[style*="border-bottom"] {
+            border-bottom-color: var(--adm-border-light) !important;
+        }
+        [data-theme="light"] .tab-panel div[style*="color:rgba(255,255,255"],
+        [data-theme="light"] .tab-panel span[style*="color:rgba(255,255,255"],
+        [data-theme="light"] .tab-panel td[style*="color:rgba(255,255,255"],
+        [data-theme="light"] .tab-panel div[style*="color:#fff"],
+        [data-theme="light"] .tab-panel td[style*="color:#fff"] {
+            color: var(--adm-text) !important;
+        }
+        [data-theme="light"] .tab-panel button[style*="color:#fff"] {
+            color: var(--adm-text) !important;
+        }
+        [data-theme="light"] .tab-panel button[style*="background:rgba(255,255,255"] {
+            background: var(--adm-bg-card) !important;
+        }
+        [data-theme="light"] .tab-panel div[style*="background:rgba(255,255,255,0.0"],
+        [data-theme="light"] .tab-panel span[style*="background:rgba(255,255,255,0.0"] {
+            background: var(--adm-bg-card) !important;
+        }
+        [data-theme="light"] #rejectModal div[style*="background:var(--adm-modal-bg)"] textarea,
+        [data-theme="light"] #rejectModal div[style*="background:var(--adm-modal-bg)"] button {
+            color: var(--adm-text);
+        }
+        /* Fix profit explanation text in light mode */
+        [data-theme="light"] .profit-explain {
+            color: var(--adm-text);
+        }
+        [data-theme="light"] .profit-explain span {
+            color: var(--adm-text) !important;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="nav-bar">
+    <a href="/" class="nav-brand"><img src="/images/logo.png" alt="Langganin" style="height: 28px; width: auto; margin-right: 0.5rem; vertical-align: middle;"> Langganin</a>
+    <div class="nav-links" id="adminNavMenu">
+        <a href="/products" data-i18n="adm_nav_products">Products</a>
+        <a href="/orders" data-i18n="adm_nav_orders">Orders</a>
+        <a href="/balance" data-i18n="adm_nav_balance">Balance</a>
+        <span class="nav-balance" id="navBalance">Loading...</span>
+    </div>
+    <button class="admin-nav-toggle" id="adminNavToggle" aria-label="Menu">
+        <span></span><span></span><span></span>
+    </button>
+</nav>
+
+<!-- Hero -->
+<div class="admin-hero">
+    <h1 data-i18n="adm_heading">🛠️ Admin Panel</h1>
+    <p data-i18n="adm_subtitle">Kelola harga jual, lihat profit, dan pantau semua order</p>
+</div>
+
+<!-- Tabs -->
+<div class="admin-tabs">
+    <button class="tab-btn active" onclick="showTab('dashboard')" data-i18n="adm_tab_dashboard">📊 Dashboard</button>
+    <button class="tab-btn" onclick="showTab('prices')" data-i18n="adm_tab_prices">💰 Harga Jual</button>
+    <button class="tab-btn" onclick="showTab('orders')" data-i18n="adm_tab_orders">📋 Semua Order</button>
+    <button class="tab-btn" onclick="showTab('withdrawals')" data-i18n="adm_tab_withdrawals">💸 Penarikan Dana</button>
+    <button class="tab-btn" onclick="showTab('users')" data-i18n="adm_tab_users">👥 Kelola User</button>
+    <button class="tab-btn" onclick="showTab('affiliate')" data-i18n="adm_tab_affiliate">🤝 Affiliate</button>
+    <button class="tab-btn" onclick="showTab('settings')" data-i18n="adm_tab_settings">⚙️ Pengaturan</button>
+</div>
+
+<!-- Tab: Dashboard -->
+<div class="tab-panel active" id="tab-dashboard">
+    <div class="stat-grid" id="statGrid">
+        <div class="stat-card">
+            <div class="stat-label" data-i18n="adm_stat_profit">Total Profit Web</div>
+            <div class="stat-value green" id="totalProfit">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label" data-i18n="adm_stat_revenue">Total Revenue</div>
+            <div class="stat-value blue" id="totalRevenue">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label" data-i18n="adm_stat_cost">Total Modal (ke WR)</div>
+            <div class="stat-value yellow" id="totalModal">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label" data-i18n="adm_stat_orders">Total Order</div>
+            <div class="stat-value" id="totalOrders">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label" data-i18n="adm_stat_success">Order Sukses</div>
+            <div class="stat-value green" id="successOrders">—</div>
+        </div>
+    </div>
+
+    <h3 style="color:var(--adm-text); margin-bottom:1rem;" data-i18n="adm_profit_how">📈 Cara Kerja Profit</h3>
+    <div class="profit-explain" style="background:var(--adm-bg-card); border:1px solid var(--adm-border); border-radius:12px; padding:1.5rem; color:var(--adm-text); line-height:1.8; font-size:0.93rem;">
+        <span data-i18n-html="adm_profit_1"><strong style="color:#38ef7d;">1. User order</strong> di web kamu dengan harga jual (sell_price)</span><br>
+        <span data-i18n-html="adm_profit_2"><strong style="color:#4facfe;">2. Saldo user</strong> dipotong sebesar harga jual</span><br>
+        <span data-i18n-html="adm_profit_3"><strong style="color:#f7971e;">3. Web kamu</strong> otomatis order ke <strong>Warung Rebahan API</strong> dengan harga modal</span><br>
+        <span data-i18n-html="adm_profit_4"><strong style="color:#a8a4ff;">4. Profit</strong> = Harga Jual − Harga Modal → otomatis masuk tabel profits</span><br>
+        <br>
+        <span data-i18n-html="adm_profit_example"><strong>Contoh:</strong> Modal WR Rp 5.000 → kamu jual Rp 6.500 → Profit kamu <strong style="color:#38ef7d;">Rp 1.500</strong> ✅</span>
+    </div>
+</div>
+
+<!-- Tab: Harga Jual -->
+<div class="tab-panel" id="tab-prices">
+    <div class="search-bar">
+        <input type="text" id="searchVariant" data-i18n-placeholder="adm_search_ph" placeholder="🔍 Cari produk atau variant..." oninput="filterVariants()" />
+    </div>
+    <div id="priceEditorList">
+        <div class="empty-state"><div class="icon">⏳</div><span data-i18n="adm_loading_products">Memuat produk...</span></div>
+    </div>
+</div>
+
+<!-- Tab: Semua Order -->
+<div class="tab-panel" id="tab-orders">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; flex-wrap:wrap; gap:1rem;">
+        <h3 style="color:var(--adm-text); margin:0;" data-i18n="adm_all_orders">📋 Semua Order</h3>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button class="tab-btn" style="font-size:0.78rem;padding:0.4rem 0.8rem;" onclick="filterAdminOrders('all')" data-i18n="adm_filter_all">Semua</button>
+            <button class="tab-btn" style="font-size:0.78rem;padding:0.4rem 0.8rem;background:rgba(79,172,254,0.12);color:#4facfe;border-color:rgba(79,172,254,0.25);" onclick="filterAdminOrders('processing')" data-i18n="adm_filter_processing">⏳ Processing</button>
+            <button class="tab-btn" style="font-size:0.78rem;padding:0.4rem 0.8rem;background:rgba(56,239,125,0.12);color:#38ef7d;border-color:rgba(56,239,125,0.25);" onclick="filterAdminOrders('done')" data-i18n="adm_filter_done">✅ Done</button>
+        </div>
+    </div>
+    <div class="orders-table-wrap">
+        <table class="orders-table">
+            <thead>
+                <tr>
+                    <th data-i18n="adm_col_id">Order ID</th>
+                    <th data-i18n="adm_col_user">User</th>
+                    <th data-i18n="adm_col_product">Produk</th>
+                    <th data-i18n="adm_col_sell">Harga Jual</th>
+                    <th data-i18n="adm_col_profit">Profit</th>
+                    <th data-i18n="adm_col_status">Status</th>
+                    <th data-i18n="adm_col_date">Tanggal</th>
+                    <th data-i18n="adm_col_action">Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="ordersTableBody">
+                <tr><td colspan="8" style="text-align:center;color:rgba(255,255,255,0.3);padding:2rem;" data-i18n="adm_loading">Memuat...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="admin-order-cards" id="adminOrderCards"></div>
+</div>
+
+<!-- Modal: Complete Order -->
+<div id="completeModal" style="display:none; position:fixed; inset:0; background:var(--adm-overlay-bg); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:var(--adm-bg2); border:1px solid var(--adm-border); border-radius:16px; padding:2rem; width:420px; max-width:calc(100vw - 2rem); max-height:90vh; overflow-y:auto;">
+        <h3 style="color:var(--adm-text); margin:0 0 0.5rem;" data-i18n="adm_complete_title">✅ Selesaikan Order</h3>
+        <p style="color:var(--adm-text-muted); font-size:0.85rem; margin:0 0 1.5rem;" id="cmOrderInfo"></p>
+        
+        <div style="margin-bottom:1rem;">
+            <label style="color:var(--adm-text-muted); font-size:0.85rem; display:block; margin-bottom:0.4rem;"><span data-i18n="adm_account_label">Info Akun / Produk</span> <span style="color:#f5576c;">*</span></label>
+            <p style="color:var(--adm-text-faint); font-size:0.75rem; margin:0 0 0.5rem;" data-i18n="adm_account_hint">Isi data akun atau produk yang dikirim ke user (email, password, kode, dll)</p>
+            <div id="cmFields">
+                <div class="cm-field-row" style="display:flex; gap:0.5rem; margin-bottom:0.5rem;">
+                    <input type="text" data-i18n-placeholder="adm_field_key" placeholder="Label (misal: Email)" class="cm-key settings-input" style="flex:1; padding:0.6rem 0.8rem; font-size:0.88rem;" />
+                    <input type="text" data-i18n-placeholder="adm_field_val" placeholder="Nilai (misal: user@mail.com)" class="cm-val settings-input" style="flex:1.5; padding:0.6rem 0.8rem; font-size:0.88rem;" />
+                    <button onclick="removeCmField(this)" style="background:rgba(245,87,108,0.15); color:#f5576c; border:1px solid rgba(245,87,108,0.3); border-radius:8px; padding:0.4rem 0.7rem; cursor:pointer; font-size:0.85rem;">✕</button>
+                </div>
+            </div>
+            <button onclick="addCmField()" style="background:var(--adm-bg-card); color:var(--adm-text-muted); border:1px solid var(--adm-border); border-radius:8px; padding:0.4rem 1rem; cursor:pointer; font-size:0.82rem; margin-top:0.25rem;" data-i18n="adm_add_field">+ Tambah field</button>
+        </div>
+
+        <div style="display:flex; gap:0.5rem; margin-top:1.5rem;">
+            <button onclick="submitCompleteOrder()" class="btn-save" style="flex:1; padding:0.75rem; font-size:0.95rem;" data-i18n="adm_btn_save_complete">💾 Simpan & Selesaikan</button>
+            <button onclick="closeCompleteModal()" style="flex:0.5; padding:0.75rem; background:var(--adm-bg-card); color:var(--adm-text-muted); border:1px solid var(--adm-border); border-radius:8px; cursor:pointer; font-size:0.9rem;" data-i18n="adm_btn_cancel">Batal</button>
+        </div>
+
+        <div style="margin-top:1rem; display:flex; gap:0.5rem;">
+            <button onclick="submitAndSendWA()" style="flex:1; padding:0.7rem; background:rgba(37,211,102,0.12); color:#25d366; border:1px solid rgba(37,211,102,0.3); border-radius:8px; cursor:pointer; font-size:0.88rem; font-weight:600;">
+                💬 <span data-i18n="adm_btn_save_wa">Simpan & Kirim WA ke User</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Tab: Withdrawals -->
+<div class="tab-panel" id="tab-withdrawals">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; flex-wrap:wrap; gap:1rem;">
+        <h2 data-i18n="adm_withdrawals">💸 Kelola Penarikan Dana</h2>
+        <div style="display:flex; gap:0.5rem;">
+            <button class="btn-sm" style="background:var(--adm-bg-card); border:1px solid var(--adm-border); padding:0.4rem 0.8rem; border-radius:6px; font-size:0.8rem;" onclick="filterWithdrawals('all')" data-i18n="adm_wd_all">Semua</button>
+            <button class="btn-sm" style="background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.25); color:#fbbf24; padding:0.4rem 0.8rem; border-radius:6px; font-size:0.8rem;" onclick="filterWithdrawals('pending')" data-i18n="adm_wd_pending">Pending</button>
+            <button class="btn-sm" style="background:rgba(52,211,153,0.12); border:1px solid rgba(52,211,153,0.25); color:#34d399; padding:0.4rem 0.8rem; border-radius:6px; font-size:0.8rem;" onclick="filterWithdrawals('approved')" data-i18n="adm_wd_approved">Approved</button>
+            <button class="btn-sm" style="background:rgba(96,165,250,0.12); border:1px solid rgba(96,165,250,0.25); color:#60a5fa; padding:0.4rem 0.8rem; border-radius:6px; font-size:0.8rem;" onclick="filterWithdrawals('completed')" data-i18n="adm_wd_completed">Completed</button>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; margin-bottom:1.5rem;" id="withdrawalStats">
+        <div class="stat-card" style="background:rgba(251,191,36,0.08); border-color:rgba(251,191,36,0.2);">
+            <div class="stat-label" data-i18n="adm_wd_stat_pending">⏳ Pending</div>
+            <div class="stat-value yellow" id="pendingWithdrawals">—</div>
+        </div>
+        <div class="stat-card" style="background:rgba(52,211,153,0.08); border-color:rgba(52,211,153,0.2);">
+            <div class="stat-label" data-i18n="adm_wd_stat_approved">✅ Approved</div>
+            <div class="stat-value green" id="approvedWithdrawals">—</div>
+        </div>
+        <div class="stat-card" style="background:rgba(96,165,250,0.08); border-color:rgba(96,165,250,0.2);">
+            <div class="stat-label" data-i18n="adm_wd_stat_completed">💰 Completed</div>
+            <div class="stat-value blue" id="completedWithdrawals">—</div>
+        </div>
+        <div class="stat-card" style="background:rgba(248,113,113,0.08); border-color:rgba(248,113,113,0.2);">
+            <div class="stat-label" data-i18n="adm_wd_stat_fee">📊 Total Admin Fee</div>
+            <div class="stat-value" style="color:#f87171;" id="totalAdminFee">—</div>
+        </div>
+    </div>
+
+    <div id="withdrawalsList" style="background:var(--adm-bg-card); border:1px solid var(--adm-border-light); border-radius:12px; padding:1rem;">
+        <div style="text-align:center; padding:2rem; color:var(--adm-text-faint);">
+            <div style="font-size:2rem; margin-bottom:0.5rem;">⏳</div>
+            <div data-i18n="adm_loading_withdrawals">Memuat data...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tab: Users -->
+<div class="tab-panel" id="tab-users">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; flex-wrap:wrap; gap:1rem;">
+        <h3 style="color:var(--adm-text); margin:0;" data-i18n="adm_users">👥 Kelola User</h3>
+        <button class="btn btn-primary btn-sm" onclick="loadUsers()" data-i18n="adm_refresh">↻ Refresh</button>
+    </div>
+    <div id="usersLoading" style="color:var(--adm-text-muted); padding:2rem 0;" data-i18n="adm_loading">Memuat...</div>
+    <div style="overflow-x:auto;">
+        <table id="usersTable" style="display:none; width:100%; border-collapse:collapse;">
+            <thead>
+                <tr style="border-bottom:1px solid var(--adm-border);">
+                    <th style="text-align:left; padding:0.7rem 1rem; font-size:0.75rem; text-transform:uppercase; letter-spacing:.05em;">ID</th>
+                    <th style="text-align:left; padding:0.7rem 1rem; font-size:0.75rem; text-transform:uppercase; letter-spacing:.05em;" data-i18n="adm_col_username">Username</th>
+                    <th style="text-align:left; padding:0.7rem 1rem; font-size:0.75rem; text-transform:uppercase; letter-spacing:.05em;" data-i18n="adm_col_email">Email</th>
+                    <th style="text-align:left; padding:0.7rem 1rem; font-size:0.75rem; text-transform:uppercase; letter-spacing:.05em;" data-i18n="adm_col_whatsapp">WhatsApp</th>
+                    <th style="text-align:left; padding:0.7rem 1rem; font-size:0.75rem; text-transform:uppercase; letter-spacing:.05em;" data-i18n="adm_col_balance">Saldo</th>
+                    <th style="text-align:left; padding:0.7rem 1rem; font-size:0.75rem; text-transform:uppercase; letter-spacing:.05em;" data-i18n="adm_col_role">Role</th>
+                    <th style="text-align:left; padding:0.7rem 1rem; font-size:0.75rem; text-transform:uppercase; letter-spacing:.05em;" data-i18n="adm_col_action">Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="usersTbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Tab: Affiliate -->
+<div class="tab-panel" id="tab-affiliate">
+
+    <!-- Header -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; flex-wrap:wrap; gap:0.75rem;">
+        <div>
+            <h2 style="margin:0; font-size:1.25rem;" data-i18n="adm_aff_heading">🤝 Kelola Affiliate</h2>
+            <p style="margin:0.25rem 0 0; color:var(--adm-text-faint); font-size:0.8rem;">Kelola komisi, diskon referral, dan penarikan</p>
+        </div>
+        <button class="btn-save" onclick="loadAffiliateAdmin()" style="padding:0.5rem 1.1rem; font-size:0.85rem; display:flex; align-items:center; gap:0.4rem;">
+            <span style="font-size:1rem;">↻</span> <span data-i18n="adm_refresh">Refresh</span>
+        </button>
+    </div>
+
+    <!-- Affiliate Stats -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.75rem; margin-bottom:1.75rem;">
+        <div style="background:linear-gradient(135deg,rgba(247,151,30,0.12),rgba(247,151,30,0.04)); border:1px solid rgba(247,151,30,0.25); border-radius:14px; padding:1rem 1.1rem;">
+            <div style="font-size:1.5rem; margin-bottom:0.25rem;">👥</div>
+            <div style="color:var(--adm-text-faint); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;" data-i18n="adm_aff_total_affiliates">Total Affiliate</div>
+            <div style="color:#f7971e; font-size:1.6rem; font-weight:800; line-height:1.2; margin-top:0.2rem;" id="admAffTotal">—</div>
+        </div>
+        <div style="background:linear-gradient(135deg,rgba(168,164,255,0.12),rgba(168,164,255,0.04)); border:1px solid rgba(168,164,255,0.25); border-radius:14px; padding:1rem 1.1rem;">
+            <div style="font-size:1.5rem; margin-bottom:0.25rem;">🔗</div>
+            <div style="color:var(--adm-text-faint); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;" data-i18n="adm_aff_total_referrals">Total Referral</div>
+            <div style="color:#a8a4ff; font-size:1.6rem; font-weight:800; line-height:1.2; margin-top:0.2rem;" id="admAffReferrals">—</div>
+        </div>
+        <div style="background:linear-gradient(135deg,rgba(56,239,125,0.12),rgba(56,239,125,0.04)); border:1px solid rgba(56,239,125,0.25); border-radius:14px; padding:1rem 1.1rem;">
+            <div style="font-size:1.5rem; margin-bottom:0.25rem;">💰</div>
+            <div style="color:var(--adm-text-faint); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;" data-i18n="adm_aff_total_commissions">Total Komisi</div>
+            <div style="color:#38ef7d; font-size:1.3rem; font-weight:800; line-height:1.2; margin-top:0.2rem;" id="admAffCommissions">—</div>
+        </div>
+        <div style="background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(251,191,36,0.04)); border:1px solid rgba(251,191,36,0.25); border-radius:14px; padding:1rem 1.1rem;">
+            <div style="font-size:1.5rem; margin-bottom:0.25rem;">⏳</div>
+            <div style="color:var(--adm-text-faint); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;" data-i18n="adm_aff_pending_wd">Pending WD</div>
+            <div style="color:#fbbf24; font-size:1rem; font-weight:800; line-height:1.2; margin-top:0.2rem;" id="admAffPendingWd">—</div>
+        </div>
+    </div>
+
+    <!-- Settings: dua kolom card -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem; margin-bottom:1.75rem;">
+
+        <!-- Komisi Affiliate -->
+        <div style="background:var(--adm-bg-card); border:1px solid var(--adm-border); border-radius:16px; padding:1.25rem;">
+            <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:1.1rem;">
+                <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#f7971e,#ffd200);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">🎁</div>
+                <div>
+                    <div style="font-weight:700; color:var(--adm-text); font-size:0.95rem;" data-i18n="adm_aff_settings_comm_title">Komisi Affiliate</div>
+                    <div style="color:var(--adm-text-faint); font-size:0.72rem;">Dibayar ke pemilik kode referral</div>
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">
+                <div>
+                    <label style="color:var(--adm-text-muted); font-size:0.78rem; display:block; margin-bottom:0.4rem; font-weight:600;" data-i18n="adm_aff_comm_type">Tipe</label>
+                    <select id="admAffCommType" class="settings-input" style="font-size:0.88rem; padding:0.6rem 0.75rem;">
+                        <option value="percentage">Persentase (%)</option>
+                        <option value="fixed">Fixed (Rp)</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="color:var(--adm-text-muted); font-size:0.78rem; display:block; margin-bottom:0.4rem; font-weight:600;" data-i18n="adm_aff_comm_value">Nilai</label>
+                    <input type="number" id="admAffCommValue" class="settings-input" value="3" min="0" step="0.5" style="font-size:0.88rem; padding:0.6rem 0.75rem;" />
+                </div>
+            </div>
+            <p style="color:var(--adm-text-faint); font-size:0.74rem; margin:0;" data-i18n="adm_aff_comm_value_h">% dari harga jual, atau Rp fixed per order</p>
+        </div>
+
+        <!-- Diskon Referral -->
+        <div style="background:var(--adm-bg-card); border:1px solid var(--adm-border); border-radius:16px; padding:1.25rem;">
+            <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:1.1rem;">
+                <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#11998e,#38ef7d);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">🏷️</div>
+                <div>
+                    <div style="font-weight:700; color:var(--adm-text); font-size:0.95rem;" data-i18n="adm_aff_disc_title">Diskon Referral</div>
+                    <div style="color:var(--adm-text-faint); font-size:0.72rem;">Potongan harga untuk pengguna referral</div>
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">
+                <div>
+                    <label style="color:var(--adm-text-muted); font-size:0.78rem; display:block; margin-bottom:0.4rem; font-weight:600;" data-i18n="adm_aff_disc_type">Tipe</label>
+                    <select id="admAffDiscType" class="settings-input" style="font-size:0.88rem; padding:0.6rem 0.75rem;">
+                        <option value="percentage">Persentase (%)</option>
+                        <option value="fixed">Fixed (Rp)</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="color:var(--adm-text-muted); font-size:0.78rem; display:block; margin-bottom:0.4rem; font-weight:600;" data-i18n="adm_aff_disc_value">Nilai</label>
+                    <input type="number" id="admAffDiscValue" class="settings-input" value="3" min="0" step="0.5" style="font-size:0.88rem; padding:0.6rem 0.75rem;" />
+                </div>
+            </div>
+            <p style="color:var(--adm-text-faint); font-size:0.74rem; margin:0;" data-i18n="adm_aff_disc_value_h">0 = nonaktif. Potongan dari saldo user saat beli</p>
+        </div>
+
+        <!-- Lainnya -->
+        <div style="background:var(--adm-bg-card); border:1px solid var(--adm-border); border-radius:16px; padding:1.25rem;">
+            <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:1.1rem;">
+                <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#4facfe,#00f2fe);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">⚙️</div>
+                <div>
+                    <div style="font-weight:700; color:var(--adm-text); font-size:0.95rem;">Pengaturan Lain</div>
+                    <div style="color:var(--adm-text-faint); font-size:0.72rem;">Min. WD, cookie, status program</div>
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                <div>
+                    <label style="color:var(--adm-text-muted); font-size:0.78rem; display:block; margin-bottom:0.4rem; font-weight:600;" data-i18n="adm_aff_min_wd">Min. WD (Rp)</label>
+                    <input type="number" id="admAffMinWd" class="settings-input" value="10000" min="0" step="1000" style="font-size:0.88rem; padding:0.6rem 0.75rem;" />
+                </div>
+                <div>
+                    <label style="color:var(--adm-text-muted); font-size:0.78rem; display:block; margin-bottom:0.4rem; font-weight:600;" data-i18n="adm_aff_cookie_days">Cookie Days</label>
+                    <input type="number" id="admAffCookieDays" class="settings-input" value="30" min="1" style="font-size:0.88rem; padding:0.6rem 0.75rem;" />
+                </div>
+                <div style="grid-column:1/-1;">
+                    <label style="color:var(--adm-text-muted); font-size:0.78rem; display:block; margin-bottom:0.4rem; font-weight:600;" data-i18n="adm_aff_active">Status Program</label>
+                    <select id="admAffActive" class="settings-input" style="font-size:0.88rem; padding:0.6rem 0.75rem;">
+                        <option value="true">✅ Aktif</option>
+                        <option value="false">⛔ Nonaktif</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Breakdown info -->
+    <div id="affProfitPreview" style="background:linear-gradient(135deg,rgba(108,99,255,0.12),rgba(79,172,254,0.08)); border:1px solid rgba(108,99,255,0.2); border-radius:14px; padding:1rem 1.25rem; margin-bottom:1.75rem; display:flex; flex-wrap:wrap; gap:0.75rem; align-items:center;">
+        <div style="flex:1; min-width:200px;">
+            <div style="font-size:0.8rem; font-weight:700; color:var(--adm-text); margin-bottom:0.4rem;">📊 Simulasi per Rp 50.000 transaksi</div>
+            <div style="font-size:0.75rem; color:var(--adm-text-faint); line-height:1.7;" id="affSimText">—</div>
+        </div>
+        <button onclick="saveAffSettings()" style="background:linear-gradient(135deg,#6c63ff,#4facfe); color:#fff; border:none; border-radius:12px; padding:0.7rem 1.5rem; font-weight:700; font-size:0.9rem; cursor:pointer; white-space:nowrap; box-shadow:0 4px 16px rgba(108,99,255,0.3); transition:opacity .2s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+            💾 <span data-i18n="adm_btn_save">Simpan</span>
+        </button>
+    </div>
+
+    <!-- Top Affiliates -->
+    <div style="background:var(--adm-bg-card); border:1px solid var(--adm-border); border-radius:16px; padding:1.25rem; margin-bottom:1.5rem;">
+        <h3 style="color:var(--adm-text); margin:0 0 1rem; font-size:1rem;" data-i18n="adm_aff_top">🏆 Top Affiliate</h3>
+        <div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
+            <table class="orders-table" id="topAffTable" style="min-width:520px;">
+                <thead>
+                    <tr>
+                        <th style="width:36px;">#</th>
+                        <th data-i18n="adm_col_username">Username</th>
+                        <th data-i18n="adm_aff_col_code">Kode</th>
+                        <th data-i18n="adm_aff_col_referrals">Referral</th>
+                        <th data-i18n="adm_aff_col_earned">Total Komisi</th>
+                        <th data-i18n="adm_aff_col_balance">Saldo</th>
+                    </tr>
+                </thead>
+                <tbody id="topAffTbody">
+                    <tr><td colspan="6" style="text-align:center; color:var(--adm-text-faint); padding:2rem;" data-i18n="adm_loading">Memuat...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Affiliate Withdrawals -->
+    <div style="background:var(--adm-bg-card); border:1px solid var(--adm-border); border-radius:16px; padding:1.25rem;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
+            <h3 style="color:var(--adm-text); margin:0; font-size:1rem;" data-i18n="adm_aff_wd_title">💸 Penarikan Komisi Affiliate</h3>
+            <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                <button class="aff-wd-filter active" onclick="filterAffWd('all')" data-filter="all" style="font-size:0.75rem; padding:0.35rem 0.8rem; border-radius:20px; border:1px solid var(--adm-border); background:rgba(255,255,255,0.07); color:var(--adm-text-muted); cursor:pointer;" data-i18n="adm_filter_all">Semua</button>
+                <button class="aff-wd-filter" onclick="filterAffWd('pending')" data-filter="pending" style="font-size:0.75rem; padding:0.35rem 0.8rem; border-radius:20px; border:1px solid rgba(251,191,36,0.3); background:rgba(251,191,36,0.1); color:#fbbf24; cursor:pointer;">Pending</button>
+                <button class="aff-wd-filter" onclick="filterAffWd('approved')" data-filter="approved" style="font-size:0.75rem; padding:0.35rem 0.8rem; border-radius:20px; border:1px solid rgba(52,211,153,0.3); background:rgba(52,211,153,0.1); color:#34d399; cursor:pointer;">Approved</button>
+            </div>
+        </div>
+        <div id="affWdList">
+            <div style="text-align:center; padding:2rem; color:var(--adm-text-faint);">⏳ <span data-i18n="adm_loading">Memuat...</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- Tab: Settings -->
+<div class="tab-panel" id="tab-settings">
+    <h3 style="color:var(--adm-text); margin-bottom:1.5rem;" data-i18n="adm_settings">⚙️ Konfigurasi Markup Otomatis</h3>
+    <div class="settings-grid">
+        <div class="settings-card">
+            <label data-i18n="adm_markup_pct">Markup Persentase (%)</label>
+            <input type="number" class="settings-input" id="markupPct" value="20" min="0" max="1000" />
+            <p class="hint" data-i18n="adm_markup_pct_h">Ditambahkan dari harga modal WR. Default: 20%</p>
+        </div>
+        <div class="settings-card">
+            <label data-i18n="adm_markup_fixed">Fixed Markup (Rp)</label>
+            <input type="number" class="settings-input" id="fixedMarkup" value="1000" min="0" />
+            <p class="hint" data-i18n="adm_markup_fixed_h">Tambahan fixed per variant. Default: Rp 1.000</p>
+        </div>
+    </div>
+    <p style="color:var(--adm-text-faint);font-size:0.85rem;" data-i18n="adm_settings_env_warn">
+        ⚠️ Pengaturan ini ada di file <code style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;">.env</code> 
+        (<code>MARKUP_PERCENTAGE</code> dan <code>FIXED_MARKUP</code>). 
+        Ubah di sana untuk perubahan permanen lalu restart server.
+    </p>
+    <div style="margin-top:2rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.5rem;">
+        <h4 style="color:#f7971e;margin-top:0;" data-i18n="adm_tips_title">💡 Tips Markup yang Bagus</h4>
+        <ul style="color:var(--adm-text-muted);line-height:2;font-size:0.9rem;">
+            <li data-i18n="adm_tips_1">Produk murah (< Rp 10.000): markup 30-50% + fixed Rp 500</li>
+            <li data-i18n="adm_tips_2">Produk menengah (Rp 10-50k): markup 15-25% + fixed Rp 1.000</li>
+            <li data-i18n="adm_tips_3">Produk mahal (> Rp 50.000): markup 10-15% + fixed Rp 2.000</li>
+            <li data-i18n="adm_tips_4">Gunakan <strong>custom_price</strong> per variant untuk kontrol penuh</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay" style="display:none;">
+    <div class="spinner"></div>
+</div>
+
+<script>
+    const API_BASE = '/api';
+    let token = localStorage.getItem('token');
+    let allProductsData = [];
+    let allWithdrawalsData = [];
+    let allAdminOrders = [];
+    let currentWithdrawalFilter = 'all';
+    let currentOrderFilter = 'all';
+    let completeOrderId = null;
+
+    // ===== AUTH CHECK =====
+    window.addEventListener('DOMContentLoaded', async () => {
+        if (!token) { window.location.href = '/login'; return; }
+
+        // Mobile nav toggle
+        document.getElementById('adminNavToggle').addEventListener('click', () => {
+            document.getElementById('adminNavMenu').classList.toggle('open');
+        });
+        document.querySelectorAll('#adminNavMenu a').forEach(link => {
+            link.addEventListener('click', () => {
+                document.getElementById('adminNavMenu').classList.remove('open');
+            });
+        });
+
+        // Verify admin
+        const profile = await fetchAPI('/auth/profile');
+        if (!profile?.success || !profile.data?.is_admin) {
+            alert(t('adm_access_denied'));
+            window.location.href = '/products';
+            return;
+        }
+
+        const userData = profile.data;
+        document.getElementById('navBalance').textContent = 'Rp ' + Number(userData.balance).toLocaleString('id-ID');
+
+        // Load all data
+        loadDashboard();
+        loadPriceEditor();
+        loadAllOrders();
+        loadUsers();
+        loadWithdrawals();
+        loadAffiliateAdmin();
+    });
+
+    // ===== TAB SWITCHER =====
+    function showTab(name) {
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + name).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    // ===== FETCH HELPER =====
+    async function fetchAPI(endpoint, options = {}) {
+        try {
+            const res = await fetch(API_BASE + endpoint, {
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...options.headers },
+                ...options
+            });
+            return await res.json();
+        } catch (e) {
+            console.error(e);
+            return null;
+        }
+    }
+
+    // ===== DASHBOARD =====
+    async function loadDashboard() {
+        const data = await fetchAPI('/orders/profit-summary');
+        if (!data?.success) return;
+        const d = data.data;
+        document.getElementById('totalProfit').textContent   = 'Rp ' + Number(d.total_profit).toLocaleString('id-ID');
+        document.getElementById('totalRevenue').textContent  = 'Rp ' + Number(d.total_revenue).toLocaleString('id-ID');
+        document.getElementById('totalModal').textContent    = 'Rp ' + Number(d.total_modal).toLocaleString('id-ID');
+        document.getElementById('totalOrders').textContent   = d.total_orders;
+        document.getElementById('successOrders').textContent = d.success_orders;
+    }
+
+    // ===== PRICE EDITOR =====
+    async function loadPriceEditor() {
+        const data = await fetchAPI('/products');
+        if (!data?.success) {
+            document.getElementById('priceEditorList').innerHTML =
+                '<div class="empty-state"><div class="icon">❌</div>' + t('adm_failed_load_products') + '</div>';
+            return;
+        }
+        allProductsData = data.data;
+        renderPriceEditor(allProductsData);
+    }
+
+    function renderPriceEditor(products) {
+        const container = document.getElementById('priceEditorList');
+        if (!products.length) {
+            container.innerHTML = '<div class="empty-state"><div class="icon">📦</div>' + t('adm_no_products') + '</div>';
+            return;
+        }
+
+        container.innerHTML = products.map(product => `
+            <div class="product-section" id="ps-${product.id}">
+                <div class="product-header" onclick="toggleProduct('${product.id}')">
+                    <h3>${product.name} <span class="badge">${product.category || 'Umum'}</span></h3>
+                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <span style="color:rgba(255,255,255,0.4);font-size:0.85rem;">${product.variants?.length || 0} variant</span>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                </div>
+                <div class="product-body" id="pb-${product.id}" style="display:none;">
+                    <table class="variants-table">
+                        <thead>
+                            <tr>
+                                <th>${t('adm_col_variant')}</th>
+                                <th>${t('adm_col_stock')}</th>
+                                <th>${t('adm_cost_wr')}</th>
+                                <th>${t('adm_sell_user')}</th>
+                                <th>${t('adm_profit_item')}</th>
+                                <th>${t('adm_col_action')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${(product.variants || []).map(v => renderVariantRow(v)).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderVariantRow(v) {
+        const isCustom = v.custom_price != null;
+        const sellPrice = isCustom ? v.custom_price : v.our_price;
+        const profit = sellPrice - v.original_price;
+
+        return `
+            <tr id="row-${v.id}">
+                <td>
+                    ${v.name}
+                    ${isCustom ? '<span class="custom-tag">CUSTOM</span>' : ''}
+                </td>
+                <td>${v.stock}</td>
+                <td style="color:#f7971e;">Rp ${Number(v.original_price).toLocaleString('id-ID')}</td>
+                <td>
+                    <div class="price-input-wrap">
+                        <input type="number"
+                            class="price-input ${isCustom ? 'custom' : ''}"
+                            id="price-${v.id}"
+                            value="${sellPrice}"
+                            min="0" step="100"
+                            onchange="markDirty('${v.id}')"
+                        />
+                    </div>
+                </td>
+                <td>
+                    <span class="profit-badge ${profit > 0 ? 'pos' : 'zero'}">
+                        Rp ${Number(profit).toLocaleString('id-ID')}
+                    </span>
+                </td>
+                <td>
+                    <div style="display:flex;gap:0.4rem;">
+                        <button class="btn-save" onclick="savePrice('${v.id}')">${t('adm_btn_save')}</button>
+                        ${isCustom ? `<button class="btn-reset" onclick="resetPrice('${v.id}')">${t('adm_btn_reset')}</button>` : ''}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+
+    function toggleProduct(id) {
+        const body = document.getElementById('pb-' + id);
+        const header = body.previousElementSibling;
+        const isOpen = body.style.display !== 'none';
+        body.style.display = isOpen ? 'none' : 'block';
+        header.classList.toggle('open', !isOpen);
+    }
+
+    function markDirty(variantId) {
+        const input = document.getElementById('price-' + variantId);
+        input.style.borderColor = '#6c63ff';
+    }
+
+    async function savePrice(variantId) {
+        const input = document.getElementById('price-' + variantId);
+        const newPrice = parseInt(input.value);
+        if (!newPrice || newPrice <= 0) {
+            showToast(t('adm_price_above_zero'), 'error'); return;
+        }
+
+        showLoading(true);
+        const data = await fetchAPI('/products/admin/variant/' + variantId + '/price', {
+            method: 'PUT',
+            body: JSON.stringify({ custom_price: newPrice })
+        });
+        showLoading(false);
+
+        if (data?.success) {
+            showToast(t('adm_price_saved'), 'success');
+            loadPriceEditor(); // reload
+        } else {
+            showToast('❌ ' + (data?.message || t('adm_save_fail')), 'error');
+        }
+    }
+
+    async function resetPrice(variantId) {
+        if (!confirm(t('adm_reset_confirm'))) return;
+
+        showLoading(true);
+        const data = await fetchAPI('/products/admin/variant/' + variantId + '/price/reset', {
+            method: 'DELETE'
+        });
+        showLoading(false);
+
+        if (data?.success) {
+            showToast(t('adm_price_reset'), 'success');
+            loadPriceEditor();
+        } else {
+            showToast('❌ ' + (data?.message || t('adm_reset_fail')), 'error');
+        }
+    }
+
+    function filterVariants() {
+        const q = document.getElementById('searchVariant').value.toLowerCase();
+        if (!q) { renderPriceEditor(allProductsData); return; }
+
+        const filtered = allProductsData.filter(p =>
+            p.name.toLowerCase().includes(q) ||
+            (p.variants || []).some(v => v.name.toLowerCase().includes(q))
+        );
+        renderPriceEditor(filtered);
+        // Auto-expand semua hasil
+        setTimeout(() => {
+            filtered.forEach(p => {
+                const body = document.getElementById('pb-' + p.id);
+                if (body) { body.style.display = 'block'; }
+                const header = document.getElementById('ps-' + p.id)?.querySelector('.product-header');
+                if (header) header.classList.add('open');
+            });
+        }, 50);
+    }
+
+    // ===== ALL ORDERS =====
+    async function loadAllOrders() {
+        const data = await fetchAPI('/orders/profit-summary');
+        if (!data?.success) return;
+
+        allAdminOrders = data.data.orders;
+        renderAdminOrders(allAdminOrders);
+    }
+
+    function filterAdminOrders(filter) {
+        currentOrderFilter = filter;
+        if (filter === 'all') {
+            renderAdminOrders(allAdminOrders);
+        } else {
+            renderAdminOrders(allAdminOrders.filter(o => o.status === filter));
+        }
+    }
+
+    function renderAdminOrders(orders) {
+        const tbody = document.getElementById('ordersTableBody');
+        const cardsContainer = document.getElementById('adminOrderCards');
+
+        if (!orders.length) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:rgba(255,255,255,0.3);padding:2rem;">' + t('adm_no_orders') + '</td></tr>';
+            cardsContainer.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.3);padding:2rem;">' + t('adm_no_orders') + '</div>';
+            return;
+        }
+
+        // Desktop table
+        tbody.innerHTML = orders.map(o => {
+            const profit = parseFloat(o.profit || 0);
+            const statusClass = {
+                success: 'status-success', completed: 'status-success', done: 'status-success',
+                processing: 'status-processing', pending: 'status-pending',
+                failed: 'status-failed', cancelled: 'status-failed'
+            }[o.status] || 'status-processing';
+
+            const statusLabel = {
+                processing: t('adm_status_processing'), pending: t('adm_status_pending'),
+                success: t('adm_status_success'), completed: t('adm_status_completed'), done: t('adm_status_done'),
+                failed: t('adm_status_failed'), cancelled: t('adm_status_cancelled')
+            }[o.status] || o.status;
+
+            const hasWA = o.buyer_whatsapp || o.whatsapp;
+            const waNum = o.buyer_whatsapp || o.whatsapp || '';
+            const isDone = ['done','completed','success'].includes(o.status);
+            const hasAccount = !!o.account_details;
+
+            let actionBtns = '';
+            if (!isDone) {
+                actionBtns = `
+                    <button onclick="openCompleteModal('${escHtml(o.order_id)}')"
+                        style="padding:4px 10px; border-radius:6px; border:1px solid rgba(56,239,125,0.3);
+                               background:rgba(56,239,125,0.1); color:#38ef7d; cursor:pointer; font-size:0.75rem; font-weight:600;
+                               transition:all .2s; white-space:nowrap;"
+                        onmouseover="this.style.background='rgba(56,239,125,0.25)'"
+                        onmouseout="this.style.background='rgba(56,239,125,0.1)'">
+                        ${t('adm_btn_complete')}
+                    </button>`;
+            } else if (hasAccount) {
+                actionBtns = `
+                    <button onclick="viewAccountDetails('${escHtml(o.order_id)}')"
+                        style="padding:4px 10px; border-radius:6px; border:1px solid rgba(168,164,255,0.3);
+                               background:rgba(168,164,255,0.1); color:#a8a4ff; cursor:pointer; font-size:0.75rem; font-weight:600;
+                               transition:all .2s; white-space:nowrap;"
+                        onmouseover="this.style.background='rgba(168,164,255,0.25)'"
+                        onmouseout="this.style.background='rgba(168,164,255,0.1)'">
+                        ${t('adm_btn_view')}
+                    </button>`;
+            }
+
+            if (waNum) {
+                actionBtns += `
+                    <button onclick="sendOrderWA('${escHtml(o.order_id)}')"
+                        style="padding:4px 10px; border-radius:6px; border:1px solid rgba(37,211,102,0.3);
+                               background:rgba(37,211,102,0.1); color:#25d366; cursor:pointer; font-size:0.75rem; font-weight:600;
+                               transition:all .2s; white-space:nowrap;"
+                        onmouseover="this.style.background='rgba(37,211,102,0.25)'"
+                        onmouseout="this.style.background='rgba(37,211,102,0.1)'">
+                        ${t('adm_btn_wa')}
+                    </button>`;
+            }
+
+            return `
+                <tr>
+                    <td><code style="font-size:0.78rem;color:#a8a4ff;">${o.order_id}</code></td>
+                    <td>
+                        <div style="font-weight:600;">${o.username || '—'}</div>
+                        ${waNum ? `<div style="color:rgba(255,255,255,0.35);font-size:0.72rem;font-family:monospace;">+${escHtml(waNum)}</div>` : ''}
+                    </td>
+                    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                        ${o.product_name || '—'} - ${o.variant_name || '—'}
+                    </td>
+                    <td style="color:#4facfe;">Rp ${Number(o.our_total || 0).toLocaleString('id-ID')}</td>
+                    <td><span class="profit-badge ${profit > 0 ? 'pos' : 'zero'}">Rp ${Number(profit).toLocaleString('id-ID')}</span></td>
+                    <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+                    <td style="color:rgba(255,255,255,0.5);font-size:0.82rem;">${new Date(o.created_at).toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric'})}</td>
+                    <td style="white-space:nowrap;">
+                        <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                            ${actionBtns}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        // Mobile cards
+        cardsContainer.innerHTML = orders.map(o => {
+            const profit = parseFloat(o.profit || 0);
+            const statusLabel = {
+                processing: t('adm_status_processing'), pending: t('adm_status_pending'),
+                success: t('adm_status_success'), completed: t('adm_status_completed'), done: t('adm_status_done'),
+                failed: t('adm_status_failed'), cancelled: t('adm_status_cancelled')
+            }[o.status] || o.status;
+            const statusColor = {
+                success: '#38ef7d', completed: '#38ef7d', done: '#38ef7d',
+                processing: '#4facfe', pending: '#f7971e',
+                failed: '#f5576c', cancelled: '#f5576c'
+            }[o.status] || '#4facfe';
+
+            const waNum = o.buyer_whatsapp || o.whatsapp || '';
+            const isDone = ['done','completed','success'].includes(o.status);
+            const hasAccount = !!o.account_details;
+
+            let actionBtns = '';
+            if (!isDone) {
+                actionBtns += `<button onclick="openCompleteModal('${escHtml(o.order_id)}')" style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid rgba(56,239,125,0.3);background:rgba(56,239,125,0.1);color:#38ef7d;cursor:pointer;font-size:0.78rem;font-weight:600;">${t('adm_btn_complete')}</button>`;
+            } else if (hasAccount) {
+                actionBtns += `<button onclick="viewAccountDetails('${escHtml(o.order_id)}')" style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid rgba(168,164,255,0.3);background:rgba(168,164,255,0.1);color:#a8a4ff;cursor:pointer;font-size:0.78rem;font-weight:600;">${t('adm_btn_view_short')}</button>`;
+            }
+            if (waNum) {
+                actionBtns += `<button onclick="sendOrderWA('${escHtml(o.order_id)}')" style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid rgba(37,211,102,0.3);background:rgba(37,211,102,0.1);color:#25d366;cursor:pointer;font-size:0.78rem;font-weight:600;">${t('adm_btn_wa')}</button>`;
+            }
+
+            return `<div class="admin-order-card">
+                <div class="admin-order-card-top">
+                    <div class="admin-order-card-info">
+                        <div class="product">${escHtml(o.product_name || '—')} — ${escHtml(o.variant_name || '')}</div>
+                        <div class="user">👤 ${escHtml(o.username || '—')}${waNum ? ` · +${escHtml(waNum)}` : ''}</div>
+                    </div>
+                    <span style="flex-shrink:0;padding:2px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;color:${statusColor};background:rgba(255,255,255,0.06);">${statusLabel}</span>
+                </div>
+                <div class="admin-order-card-row"><span class="lbl">${t('adm_card_price')}</span><span class="val" style="color:#4facfe;">Rp ${Number(o.our_total || 0).toLocaleString('id-ID')}</span></div>
+                <div class="admin-order-card-row"><span class="lbl">${t('adm_card_profit')}</span><span class="val"><span class="profit-badge ${profit > 0 ? 'pos' : 'zero'}" style="font-size:0.78rem;">Rp ${Number(profit).toLocaleString('id-ID')}</span></span></div>
+                <div class="admin-order-card-row"><span class="lbl">${t('adm_card_date')}</span><span class="val" style="color:rgba(255,255,255,0.5);font-size:0.78rem;">${new Date(o.created_at).toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric'})}</span></div>
+                ${actionBtns ? `<div class="admin-order-card-actions">${actionBtns}</div>` : ''}
+            </div>`;
+        }).join('');
+    }
+
+    // ── Complete Order Modal ────────────────────────────────
+    function openCompleteModal(orderId) {
+        completeOrderId = orderId;
+        const o = allAdminOrders.find(x => x.order_id === orderId);
+        if (!o) return;
+
+        document.getElementById('cmOrderInfo').innerHTML =
+            `<strong>${escHtml(o.product_name || '')} — ${escHtml(o.variant_name || '')}</strong><br>` +
+            `User: ${escHtml(o.username || '—')} | Order: ${escHtml(orderId)}`;
+
+        // Reset fields to 2 default rows
+        const container = document.getElementById('cmFields');
+        container.innerHTML = `
+            <div class="cm-field-row" style="display:flex; gap:0.5rem; margin-bottom:0.5rem;">
+                <input type="text" placeholder="Email" class="cm-key settings-input" style="flex:1; padding:0.6rem 0.8rem; font-size:0.88rem;" />
+                <input type="text" placeholder="contoh@mail.com" class="cm-val settings-input" style="flex:1.5; padding:0.6rem 0.8rem; font-size:0.88rem;" />
+                <button onclick="removeCmField(this)" style="background:rgba(245,87,108,0.15); color:#f5576c; border:1px solid rgba(245,87,108,0.3); border-radius:8px; padding:0.4rem 0.7rem; cursor:pointer; font-size:0.85rem;">✕</button>
+            </div>
+            <div class="cm-field-row" style="display:flex; gap:0.5rem; margin-bottom:0.5rem;">
+                <input type="text" placeholder="Password" class="cm-key settings-input" style="flex:1; padding:0.6rem 0.8rem; font-size:0.88rem;" />
+                <input type="text" placeholder="********" class="cm-val settings-input" style="flex:1.5; padding:0.6rem 0.8rem; font-size:0.88rem;" />
+                <button onclick="removeCmField(this)" style="background:rgba(245,87,108,0.15); color:#f5576c; border:1px solid rgba(245,87,108,0.3); border-radius:8px; padding:0.4rem 0.7rem; cursor:pointer; font-size:0.85rem;">✕</button>
+            </div>
+        `;
+
+        document.getElementById('completeModal').style.display = 'flex';
+    }
+
+    function closeCompleteModal() {
+        document.getElementById('completeModal').style.display = 'none';
+        completeOrderId = null;
+    }
+
+    function addCmField() {
+        const row = document.createElement('div');
+        row.className = 'cm-field-row';
+        row.style.cssText = 'display:flex; gap:0.5rem; margin-bottom:0.5rem;';
+        row.innerHTML = `
+            <input type="text" placeholder="${t('adm_field_key')}" class="cm-key settings-input" style="flex:1; padding:0.6rem 0.8rem; font-size:0.88rem;" />
+            <input type="text" placeholder="${t('adm_field_val')}" class="cm-val settings-input" style="flex:1.5; padding:0.6rem 0.8rem; font-size:0.88rem;" />
+            <button onclick="removeCmField(this)" style="background:rgba(245,87,108,0.15); color:#f5576c; border:1px solid rgba(245,87,108,0.3); border-radius:8px; padding:0.4rem 0.7rem; cursor:pointer; font-size:0.85rem;">✕</button>
+        `;
+        document.getElementById('cmFields').appendChild(row);
+    }
+
+    function removeCmField(btn) {
+        const rows = document.querySelectorAll('.cm-field-row');
+        if (rows.length <= 1) return; // keep at least 1
+        btn.parentElement.remove();
+    }
+
+    function gatherAccountDetails() {
+        const rows = document.querySelectorAll('.cm-field-row');
+        const details = {};
+        let hasContent = false;
+        rows.forEach(row => {
+            const key = row.querySelector('.cm-key').value.trim();
+            const val = row.querySelector('.cm-val').value.trim();
+            if (key && val) {
+                details[key] = val;
+                hasContent = true;
+            }
+        });
+        return hasContent ? details : null;
+    }
+
+    async function submitCompleteOrder() {
+        const details = gatherAccountDetails();
+        if (!details) { showToast(t('adm_fill_min_1'), 'error'); return; }
+        if (!completeOrderId) return;
+
+        showLoading(true);
+        const res = await fetchAPI(`/orders/${completeOrderId}/complete`, {
+            method: 'PATCH',
+            body: JSON.stringify({ account_details: details })
+        });
+        showLoading(false);
+
+        if (res?.success) {
+            showToast(t('adm_order_completed'), 'success');
+            closeCompleteModal();
+            loadAllOrders();
+        } else {
+            showToast(res?.message || t('adm_order_fail'), 'error');
+        }
+    }
+
+    async function submitAndSendWA() {
+        const details = gatherAccountDetails();
+        if (!details) { showToast(t('adm_fill_min_1'), 'error'); return; }
+        if (!completeOrderId) return;
+
+        showLoading(true);
+        const res = await fetchAPI(`/orders/${completeOrderId}/complete`, {
+            method: 'PATCH',
+            body: JSON.stringify({ account_details: details })
+        });
+        showLoading(false);
+
+        if (res?.success) {
+            showToast(t('adm_order_completed_wa'), 'success');
+            closeCompleteModal();
+            // Refresh data lalu kirim WA
+            await loadAllOrders();
+            sendOrderWA(completeOrderId);
+        } else {
+            showToast(res?.message || t('adm_order_fail'), 'error');
+        }
+    }
+
+    function sendOrderWA(orderId) {
+        const o = allAdminOrders.find(x => x.order_id === orderId);
+        if (!o) return;
+        const waNum = o.buyer_whatsapp || o.whatsapp;
+        if (!waNum) { showToast(t('adm_wa_unavailable'), 'error'); return; }
+
+        let akun = '';
+        if (o.account_details) {
+            try {
+                const ad = typeof o.account_details === 'string' ? JSON.parse(o.account_details) : o.account_details;
+                const lines = Object.entries(ad).map(([k, v]) => `• *${k}:* ${v}`);
+                akun = '\n\n' + t('adm_wa_account_title') + '\n' + lines.join('\n');
+            } catch { akun = '\n\n' + t('adm_wa_detail_fallback') + String(o.account_details); }
+        }
+
+        const statusLabel = {
+            done: t('adm_status_completed'), success: t('adm_status_success'), completed: t('adm_status_completed'),
+            processing: t('adm_status_processing'), pending: t('adm_status_pending'),
+            failed: t('adm_status_failed'), cancelled: t('adm_status_cancelled')
+        }[o.status] || o.status;
+
+        const msg =
+`${t('adm_wa_greeting').replace('{username}', o.username || 'kak')}
+
+${t('adm_wa_order_processed')}
+
+${t('adm_wa_order_id')} ${o.order_id}
+${t('adm_wa_product')} ${o.product_name || '—'} — ${o.variant_name || ''}
+${t('adm_wa_total')} Rp ${Number(o.our_total || 0).toLocaleString('id-ID')}
+${t('adm_wa_status')} ${statusLabel}${akun}
+
+${t('adm_wa_thanks')}`;
+
+        const wa = String(waNum).replace(/\D/g, '');
+        window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    function viewAccountDetails(orderId) {
+        const o = allAdminOrders.find(x => x.order_id === orderId);
+        if (!o || !o.account_details) return;
+        const ad = typeof o.account_details === 'string' ? JSON.parse(o.account_details) : o.account_details;
+        const lines = Object.entries(ad).map(([k, v]) => `${k}: ${v}`).join('\n');
+        alert(`${t('adm_info_akun')} — ${o.order_id}\n\n${lines}`);
+    }
+
+    // ===== UTILS =====
+    function showLoading(show) {
+        document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+    }
+
+    function showToast(msg, type = 'success') {
+        const existing = document.querySelector('.toast');
+        if (existing) existing.remove();
+        const el = document.createElement('div');
+        el.className = 'toast ' + type;
+        el.textContent = msg;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 3500);
+    }
+
+    // ===== USER MANAGEMENT =====
+    let currentAdminId = null;
+
+    async function loadUsers() {
+        const loading = document.getElementById('usersLoading');
+        const table   = document.getElementById('usersTable');
+        loading.style.display = 'block';
+        loading.style.color   = 'rgba(255,255,255,0.5)';
+        loading.textContent   = t('adm_loading_users');
+        table.style.display   = 'none';
+
+        // simpan ID admin saat ini agar tombol diri sendiri di-disable
+        if (!currentAdminId) {
+            const me = await fetchAPI('/auth/profile');
+            if (me?.success) currentAdminId = me.data.id;
+        }
+
+        const res = await fetchAPI('/auth/users');
+
+        if (!res) {
+            loading.textContent = t('adm_server_fail');
+            loading.style.color = '#f87171';
+            return;
+        }
+        if (!res.success) {
+            loading.textContent = '❌ ' + (res.message || t('adm_load_users_fail'));
+            loading.style.color = '#f87171';
+            return;
+        }
+        if (!res.data || res.data.length === 0) {
+            loading.textContent = t('adm_no_users');
+            return;
+        }
+
+        loading.style.display = 'none';
+        table.style.display   = 'table';
+
+        document.getElementById('usersTbody').innerHTML = res.data.map(u => {
+            const hasWA = u.whatsapp && String(u.whatsapp).trim().length > 4;
+            const waDisplay = hasWA
+                ? `<div style="display:flex;flex-direction:column;gap:0.3rem;">
+                     <span style="font-size:0.78rem;color:#a0aec0;font-family:monospace;">+${escHtml(u.whatsapp)}</span>
+                     <button onclick="sendWAUser('${escHtml(u.whatsapp)}','${escHtml(u.username)}')"
+                         style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;
+                                background:rgba(37,211,102,0.1);color:#25d366;
+                                border:1px solid rgba(37,211,102,0.25);border-radius:6px;
+                                font-size:0.74rem;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;"
+                         onmouseover="this.style.background='rgba(37,211,102,0.22)'"
+                         onmouseout="this.style.background='rgba(37,211,102,0.1)'">
+                       <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                       ${t('adm_send_wa')}
+                     </button>
+                   </div>`
+                : `<span style="color:rgba(255,255,255,0.25);font-size:0.8rem;">—</span>`;
+
+            return `<tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+                <td style="padding:0.75rem 1rem; color:rgba(255,255,255,0.35); font-size:0.8rem;">#${u.id}</td>
+                <td style="padding:0.75rem 1rem; font-weight:600; color:#fff;">${escHtml(u.username)}</td>
+                <td style="padding:0.75rem 1rem; color:rgba(255,255,255,0.55); font-size:0.85rem;">${escHtml(u.email)}</td>
+                <td style="padding:0.75rem 1rem;">${waDisplay}</td>
+                <td style="padding:0.75rem 1rem; color:#4facfe; font-weight:700;">Rp ${Number(u.balance || 0).toLocaleString('id-ID')}</td>
+                <td style="padding:0.75rem 1rem;">
+                    <span style="
+                        display:inline-block; padding:2px 10px; border-radius:20px; font-size:0.72rem; font-weight:700;
+                        ${u.is_admin
+                          ? 'background:rgba(124,109,240,0.18); color:#a78bfa; border:1px solid rgba(124,109,240,0.3);'
+                          : 'background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.45); border:1px solid rgba(255,255,255,0.1);'}
+                    ">${u.is_admin ? t('adm_role_admin') : t('adm_role_user')}</span>
+                </td>
+                <td style="padding:0.75rem 1rem;">
+                    ${u.id === currentAdminId
+                      ? `<span style="color:rgba(255,255,255,0.25); font-size:0.8rem;">${t('adm_you')}</span>`
+                      : `<button onclick="toggleAdmin(${u.id}, ${!u.is_admin}, '${escHtml(u.username)}')"
+                            style="padding:4px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.15);
+                                   background:rgba(255,255,255,0.06); color:#fff; cursor:pointer; font-size:0.8rem; font-weight:600;
+                                   transition:all .2s;"
+                            onmouseover="this.style.background='rgba(124,109,240,0.2)'"
+                            onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+                            ${u.is_admin ? t('adm_make_user') : t('adm_make_admin')}
+                        </button>`
+                    }
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    function sendWAUser(waNumber, username) {
+        const wa  = String(waNumber).replace(/\D/g, '');
+        const msg = `${t('adm_wa_user_greeting').replace('{username}', username)}\n\n${t('adm_wa_user_msg')}`;
+        window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    async function toggleAdmin(userId, makeAdmin, username) {
+        if (!confirm(`${makeAdmin ? t('adm_toggle_make') : t('adm_toggle_demote')} "${username}" ${makeAdmin ? t('adm_toggle_as_admin') : t('adm_toggle_as_user')}?`)) return;
+        const res = await fetchAPI(`/auth/users/${userId}/set-admin`, {
+            method: 'PATCH',
+            body: JSON.stringify({ is_admin: makeAdmin })
+        });
+        if (res?.success) {
+            showToast(res.message, 'success');
+            loadUsers();
+        } else {
+            showToast(res?.message || t('adm_role_change_fail'), 'error');
+        }
+    }
+
+    function escHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // ===== WITHDRAWAL MANAGEMENT =====
+    async function loadWithdrawals() {
+        const loadingDiv = document.getElementById('withdrawalsList');
+        loadingDiv.innerHTML = `<div style="text-align:center; padding:2rem; color:rgba(255,255,255,0.4);">
+            <div style="font-size:2rem; margin-bottom:0.5rem;">⏳</div>
+            <div>${t('adm_loading_withdrawals')}</div>
+        </div>`;
+
+        const [res, statsRes] = await Promise.all([
+            fetchAPI('/withdrawal/admin/all'),
+            fetchAPI('/withdrawal/admin/stats')
+        ]);
+        
+        if (!res || !res.success) {
+            loadingDiv.innerHTML = `<div style="text-align:center; padding:2rem; color:#f87171;">
+                <div style="font-size:2rem; margin-bottom:0.5rem;">❌</div>
+                <div>${res?.message || t('adm_load_wd_fail')}</div>
+            </div>`;
+            return;
+        }
+
+        allWithdrawalsData = res.data || [];
+
+        // Update stats
+        const stats = (statsRes && statsRes.success) ? statsRes.data : {};
+        document.getElementById('pendingWithdrawals').textContent = stats.pending_count || 0;
+        document.getElementById('approvedWithdrawals').textContent = stats.approved_count || 0;
+        document.getElementById('completedWithdrawals').textContent = stats.completed_count || 0;
+        document.getElementById('totalAdminFee').textContent = 'Rp ' + Number(stats.total_admin_fee || 0).toLocaleString('id-ID');
+
+        renderWithdrawals();
+    }
+
+    function renderWithdrawals() {
+        const loadingDiv = document.getElementById('withdrawalsList');
+        
+        let filtered = allWithdrawalsData;
+        if (currentWithdrawalFilter !== 'all') {
+            filtered = allWithdrawalsData.filter(w => w.status === currentWithdrawalFilter);
+        }
+
+        if (filtered.length === 0) {
+            loadingDiv.innerHTML = `<div style="text-align:center; padding:2rem; color:rgba(255,255,255,0.3);">
+                <div style="font-size:2rem; margin-bottom:0.5rem;">📭</div>
+                <div>${t('adm_no_withdrawals')} ${currentWithdrawalFilter !== 'all' ? t('adm_wd_with_status') + ' ' + currentWithdrawalFilter : ''}</div>
+            </div>`;
+            return;
+        }
+
+        loadingDiv.innerHTML = `
+            <div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
+                <table style="width:100%; border-collapse:collapse; min-width:900px;">
+                    <thead>
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
+                            <th style="text-align:left; padding:0.7rem 1rem; color:rgba(255,255,255,0.45); font-size:0.75rem; text-transform:uppercase;">ID</th>
+                            <th style="text-align:left; padding:0.7rem 1rem; color:rgba(255,255,255,0.45); font-size:0.75rem; text-transform:uppercase;">User</th>
+                            <th style="text-align:left; padding:0.7rem 1rem; color:rgba(255,255,255,0.45); font-size:0.75rem; text-transform:uppercase;">${t('adm_wd_col_amount')}</th>
+                            <th style="text-align:left; padding:0.7rem 1rem; color:rgba(255,255,255,0.45); font-size:0.75rem; text-transform:uppercase;">Admin Fee</th>
+                            <th style="text-align:left; padding:0.7rem 1rem; color:rgba(255,255,255,0.45); font-size:0.75rem; text-transform:uppercase;">${t('adm_wd_col_received')}</th>
+                            <th style="text-align:left; padding:0.7rem 1rem; color:rgba(255,255,255,0.45); font-size:0.75rem; text-transform:uppercase;">${t('adm_wd_col_bank')}</th>
+                            <th style="text-align:left; padding:0.7rem 1rem; color:rgba(255,255,255,0.45); font-size:0.75rem; text-transform:uppercase;">Status</th>
+                            <th style="text-align:left; padding:0.7rem 1rem; color:rgba(255,255,255,0.45); font-size:0.75rem; text-transform:uppercase;">${t('adm_wd_col_date')}</th>
+                            <th style="text-align:left; padding:0.7rem 1rem; color:rgba(255,255,255,0.45); font-size:0.75rem; text-transform:uppercase;">${t('adm_wd_col_action')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(w => {
+                            const statusColor = {
+                                pending: '#fbbf24',
+                                approved: '#34d399',
+                                completed: '#60a5fa',
+                                rejected: '#f87171'
+                            }[w.status] || '#fff';
+                            
+                            const statusLabel = {
+                                pending: t('adm_wd_status_pending'),
+                                approved: t('adm_wd_status_approved'),
+                                completed: t('adm_wd_status_completed'),
+                                rejected: t('adm_wd_status_rejected')
+                            }[w.status] || w.status;
+
+                            let actionButtons = '';
+                            if (w.status === 'pending') {
+                                actionButtons = `
+                                    <button onclick="approveWithdrawal(${w.id})" 
+                                        style="padding:4px 10px; border-radius:6px; border:1px solid rgba(52,211,153,0.3); background:rgba(52,211,153,0.12); color:#34d399; cursor:pointer; font-size:0.75rem; font-weight:600; margin-right:4px;">
+                                        ✅ ${t('adm_wd_btn_approve')}
+                                    </button>
+                                    <button onclick="showRejectModal(${w.id})" 
+                                        style="padding:4px 10px; border-radius:6px; border:1px solid rgba(248,113,113,0.3); background:rgba(248,113,113,0.12); color:#f87171; cursor:pointer; font-size:0.75rem; font-weight:600;">
+                                        ❌ ${t('adm_wd_btn_reject')}
+                                    </button>
+                                `;
+                            } else if (w.status === 'approved') {
+                                actionButtons = `
+                                    <button onclick="completeWithdrawal(${w.id})" 
+                                        style="padding:4px 10px; border-radius:6px; border:1px solid rgba(96,165,250,0.3); background:rgba(96,165,250,0.12); color:#60a5fa; cursor:pointer; font-size:0.75rem; font-weight:600;">
+                                        💰 ${t('adm_wd_btn_complete')}
+                                    </button>
+                                `;
+                            } else {
+                                actionButtons = `<span style="color:rgba(255,255,255,0.25); font-size:0.75rem;">—</span>`;
+                            }
+
+                            return `
+                                <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+                                    <td style="padding:0.75rem 1rem; color:rgba(255,255,255,0.35); font-size:0.8rem;">#${w.id}</td>
+                                    <td style="padding:0.75rem 1rem;">
+                                        <div style="font-weight:600; color:#fff;">${escHtml(w.username)}</div>
+                                        <div style="font-size:0.75rem; color:rgba(255,255,255,0.4);">${escHtml(w.email)}</div>
+                                    </td>
+                                    <td style="padding:0.75rem 1rem; color:#f7971e; font-weight:700;">Rp ${Number(w.amount).toLocaleString('id-ID')}</td>
+                                    <td style="padding:0.75rem 1rem; color:#f87171; font-weight:600;">Rp ${Number(w.admin_fee).toLocaleString('id-ID')}</td>
+                                    <td style="padding:0.75rem 1rem; color:#34d399; font-weight:700;">Rp ${Number(w.net_amount).toLocaleString('id-ID')}</td>
+                                    <td style="padding:0.75rem 1rem;">
+                                        <div style="font-weight:600; color:#fff; font-size:0.85rem;">${escHtml(w.bank_name)}</div>
+                                        <div style="font-size:0.75rem; color:rgba(255,255,255,0.5); font-family:monospace;">${escHtml(w.account_number)}</div>
+                                        <div style="font-size:0.75rem; color:rgba(255,255,255,0.4);">${escHtml(w.account_name)}</div>
+                                    </td>
+                                    <td style="padding:0.75rem 1rem;">
+                                        <span style="display:inline-block; padding:3px 10px; border-radius:20px; font-size:0.72rem; font-weight:700; background:rgba(${statusColor === '#fbbf24' ? '251,191,36' : statusColor === '#34d399' ? '52,211,153' : statusColor === '#60a5fa' ? '96,165,250' : '248,113,113'},0.15); color:${statusColor}; border:1px solid rgba(${statusColor === '#fbbf24' ? '251,191,36' : statusColor === '#34d399' ? '52,211,153' : statusColor === '#60a5fa' ? '96,165,250' : '248,113,113'},0.3);">
+                                            ${statusLabel}
+                                        </span>
+                                        ${w.status === 'rejected' && w.rejected_reason ? `<div style="font-size:0.7rem; color:rgba(255,255,255,0.4); margin-top:4px;">${t('adm_wd_reason')} ${escHtml(w.rejected_reason)}</div>` : ''}
+                                        ${w.completed_at ? `<div style="font-size:0.7rem; color:rgba(255,255,255,0.3); margin-top:4px;">${t('adm_wd_completed_at')} ${new Date(w.completed_at).toLocaleDateString('id-ID')}</div>` : ''}
+                                    </td>
+                                    <td style="padding:0.75rem 1rem; color:rgba(255,255,255,0.5); font-size:0.82rem;">${new Date(w.created_at).toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric', hour:'2-digit', minute:'2-digit'})}</td>
+                                    <td style="padding:0.75rem 1rem;">
+                                        ${actionButtons}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    function filterWithdrawals(status) {
+        currentWithdrawalFilter = status;
+        // Update active filter button
+        document.querySelectorAll('.tab-panel#tab-withdrawals .btn-sm').forEach(btn => {
+            if (btn.textContent.toLowerCase().includes(status) || (status === 'all' && btn.dataset.i18n === 'adm_wd_all')) {
+                btn.style.opacity = '1';
+                btn.style.fontWeight = '700';
+            } else {
+                btn.style.opacity = '0.5';
+                btn.style.fontWeight = '600';
+            }
+        });
+        renderWithdrawals();
+    }
+
+    async function approveWithdrawal(id) {
+        if (!confirm(t('adm_wd_approve_confirm'))) return;
+        
+        showLoading(true);
+        const res = await fetchAPI(`/withdrawal/admin/approve/${id}`, { method: 'PATCH' });
+        showLoading(false);
+        
+        if (res?.success) {
+            showToast(t('adm_wd_approved_msg'), 'success');
+            loadWithdrawals();
+        } else {
+            showToast(res?.message || t('adm_wd_approve_fail'), 'error');
+        }
+    }
+
+    function showRejectModal(id) {
+        const modal = document.createElement('div');
+        modal.id = 'rejectModal';
+        modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; z-index:9999;';
+        modal.innerHTML = `
+            <div style="background:var(--adm-modal-bg); border:1px solid var(--adm-border); border-radius:16px; padding:2rem; max-width:500px; width:90%;">
+                <h3 style="color:var(--adm-text); margin-top:0; margin-bottom:1rem;">${t('adm_wd_reject_title')}</h3>
+                <textarea id="rejectionReason" placeholder="${t('adm_wd_reject_ph')}" 
+                    style="width:100%; height:120px; padding:0.75rem; background:var(--adm-bg-input); border:1px solid var(--adm-border); border-radius:8px; color:var(--adm-text); font-size:0.95rem; resize:vertical; box-sizing:border-box;"></textarea>
+                <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                    <button onclick="document.getElementById('rejectModal').remove()" 
+                        style="flex:1; padding:0.75rem; border-radius:8px; border:1px solid var(--adm-border); background:var(--adm-bg-card); color:var(--adm-text); cursor:pointer; font-weight:600;">
+                        ${t('adm_btn_cancel')}
+                    </button>
+                    <button onclick="confirmRejectWithdrawal(${id})" 
+                        style="flex:1; padding:0.75rem; border-radius:8px; border:none; background:linear-gradient(135deg, #f87171, #ef4444); color:#fff; cursor:pointer; font-weight:700;">
+                        ${t('adm_btn_reject')}
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        document.getElementById('rejectionReason').focus();
+    }
+
+    async function confirmRejectWithdrawal(id) {
+        const reason = document.getElementById('rejectionReason').value.trim();
+        if (!reason) {
+            alert(t('adm_reject_reason_required'));
+            return;
+        }
+
+        document.getElementById('rejectModal').remove();
+        showLoading(true);
+        
+        const res = await fetchAPI(`/withdrawal/admin/reject/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ rejection_reason: reason })
+        });
+        
+        showLoading(false);
+        
+        if (res?.success) {
+            showToast(t('adm_wd_rejected_msg'), 'success');
+            loadWithdrawals();
+        } else {
+            showToast(res?.message || t('adm_wd_reject_fail'), 'error');
+        }
+    }
+
+    async function completeWithdrawal(id) {
+        if (!confirm(t('adm_wd_complete_confirm'))) return;
+        
+        showLoading(true);
+        const res = await fetchAPI(`/withdrawal/admin/complete/${id}`, { method: 'PATCH' });
+        showLoading(false);
+        
+        if (res?.success) {
+            showToast(t('adm_wd_completed_msg'), 'success');
+            loadWithdrawals();
+        } else {
+            showToast(res?.message || t('adm_wd_complete_fail'), 'error');
+        }
+    }
+
+    // Re-render dynamic content when language changes
+    document.addEventListener('langChanged', () => {
+        // Re-apply static translations
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            el.textContent = t(el.dataset.i18n);
+        });
+        document.querySelectorAll('[data-i18n-html]').forEach(el => {
+            el.innerHTML = t(el.dataset.i18nHtml);
+        });
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            el.placeholder = t(el.dataset.i18nPlaceholder);
+        });
+        // Re-render dynamic sections
+        if (typeof renderAdminOrders === 'function') renderAdminOrders();
+        if (typeof loadUsers === 'function') loadUsers();
+        if (typeof renderWithdrawals === 'function' && typeof allWithdrawalsData !== 'undefined') renderWithdrawals();
+        if (typeof renderAffWd === 'function') renderAffWd();
+    });
+
+    // ===== AFFILIATE MANAGEMENT =====
+    let allAffWdData = [];
+    let currentAffWdFilter = 'all';
+
+    async function loadAffiliateAdmin() {
+        const res = await fetchAPI('/affiliate/admin/overview');
+        if (!res?.success) return;
+        const d = res.data;
+
+        document.getElementById('admAffTotal').textContent = d.total_affiliates;
+        document.getElementById('admAffReferrals').textContent = d.total_referrals;
+        document.getElementById('admAffCommissions').textContent = 'Rp ' + Number(d.total_commissions_paid).toLocaleString('id-ID');
+        document.getElementById('admAffPendingWd').textContent = d.pending_withdrawals_count + ' (Rp ' + Number(d.pending_withdrawals_amount).toLocaleString('id-ID') + ')';
+
+        // Settings
+        if (d.settings) {
+            document.getElementById('admAffCommType').value = d.settings.commission_type;
+            document.getElementById('admAffCommValue').value = d.settings.commission_value;
+            document.getElementById('admAffMinWd').value = d.settings.min_withdrawal;
+            document.getElementById('admAffCookieDays').value = d.settings.cookie_days;
+            document.getElementById('admAffActive').value = String(d.settings.is_active);
+            document.getElementById('admAffDiscType').value = d.settings.referral_discount_type || 'percentage';
+            document.getElementById('admAffDiscValue').value = d.settings.referral_discount_value || 0;
+        }
+        updateAffSimulation();
+
+        // Top affiliates
+        const tbody = document.getElementById('topAffTbody');
+        if (!d.top_affiliates || d.top_affiliates.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--adm-text-faint); padding:2rem;">${t('adm_aff_no_data')}</td></tr>`;
+        } else {
+            tbody.innerHTML = d.top_affiliates.map((a, i) => `
+                <tr>
+                    <td style="color:var(--adm-text-faint);">${i + 1}</td>
+                    <td>
+                        <div style="font-weight:600; color:var(--adm-text);">${escHtml(a.username)}</div>
+                        <div style="font-size:0.72rem; color:var(--adm-text-faint);">${escHtml(a.email)}</div>
+                    </td>
+                    <td><code style="font-size:0.8rem; color:#f7971e;">${escHtml(a.affiliate_code || '—')}</code></td>
+                    <td style="font-weight:600;">${a.referral_count}</td>
+                    <td style="color:#38ef7d; font-weight:700;">Rp ${Number(a.total_earned).toLocaleString('id-ID')}</td>
+                    <td style="color:#4facfe; font-weight:600;">Rp ${Number(a.affiliate_balance || 0).toLocaleString('id-ID')}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Load withdrawals
+        loadAffWithdrawals();
+    }
+
+    async function saveAffSettings() {
+        showLoading(true);
+        const res = await fetchAPI('/affiliate/admin/settings', {
+            method: 'PUT',
+            body: JSON.stringify({
+                commission_type: document.getElementById('admAffCommType').value,
+                commission_value: parseFloat(document.getElementById('admAffCommValue').value),
+                min_withdrawal: parseFloat(document.getElementById('admAffMinWd').value),
+                cookie_days: parseInt(document.getElementById('admAffCookieDays').value),
+                is_active: document.getElementById('admAffActive').value === 'true',
+                referral_discount_type: document.getElementById('admAffDiscType').value,
+                referral_discount_value: parseFloat(document.getElementById('admAffDiscValue').value) || 0
+            })
+        });
+        showLoading(false);
+
+        if (res?.success) {
+            showToast(t('adm_aff_settings_saved'), 'success');
+            updateAffSimulation();
+        } else {
+            showToast(res?.message || t('adm_save_fail'), 'error');
+        }
+    }
+
+    function updateAffSimulation() {
+        const sim = document.getElementById('affSimText');
+        if (!sim) return;
+        const sample = 50000;
+        const commType = document.getElementById('admAffCommType')?.value || 'percentage';
+        const commVal  = parseFloat(document.getElementById('admAffCommValue')?.value) || 0;
+        const discType = document.getElementById('admAffDiscType')?.value || 'percentage';
+        const discVal  = parseFloat(document.getElementById('admAffDiscValue')?.value) || 0;
+
+        const comm = commType === 'percentage' ? sample * commVal / 100 : Math.min(commVal, sample);
+        const disc = discType === 'percentage' ? sample * discVal / 100 : Math.min(discVal, sample);
+        const charged = sample - disc;
+        const assumedModal = sample * 0.9; // asumsi modal ~90% harga jual
+        const profit = charged - assumedModal - comm;
+        const fmt = v => 'Rp ' + Math.round(v).toLocaleString('id-ID');
+
+        sim.innerHTML =
+            `💳 Dipotong dari pembeli: <b style="color:#4facfe;">${fmt(charged)}</b> &nbsp;|&nbsp; ` +
+            `🎁 Komisi ke affiliate: <b style="color:#f7971e;">${fmt(comm)}</b> &nbsp;|&nbsp; ` +
+            `🏷️ Diskon referral: <b style="color:#a8a4ff;">${fmt(disc)}</b> &nbsp;|&nbsp; ` +
+            `📈 Est. profit bersih (margin 10%): <b style="color:${profit >= 0 ? '#38ef7d' : '#f87171'};">${fmt(profit)}</b>`;
+    }
+
+    // Live update simulation when inputs change
+    ['admAffCommType','admAffCommValue','admAffDiscType','admAffDiscValue'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', updateAffSimulation);
+        document.getElementById(id)?.addEventListener('change', updateAffSimulation);
+    });
+    updateAffSimulation();
+
+    async function loadAffWithdrawals() {
+        const res = await fetchAPI('/affiliate/admin/withdrawals');
+        if (!res?.success) return;
+        allAffWdData = res.data || [];
+        renderAffWd();
+    }
+
+    function filterAffWd(status) {
+        currentAffWdFilter = status;
+        renderAffWd();
+    }
+
+    function renderAffWd() {
+        const container = document.getElementById('affWdList');
+
+        // Update active filter button style
+        document.querySelectorAll('.aff-wd-filter').forEach(btn => {
+            const isActive = btn.dataset.filter === currentAffWdFilter;
+            btn.style.fontWeight = isActive ? '700' : '500';
+            btn.style.boxShadow  = isActive ? '0 2px 8px rgba(0,0,0,0.2)' : 'none';
+            btn.style.opacity    = isActive ? '1' : '0.7';
+        });
+
+        let filtered = allAffWdData;
+        if (currentAffWdFilter !== 'all') {
+            filtered = allAffWdData.filter(w => w.status === currentAffWdFilter);
+        }
+
+        if (!filtered.length) {
+            container.innerHTML = `<div style="text-align:center; padding:2.5rem; color:var(--adm-text-faint);">📭 ${t('adm_aff_no_wd')}</div>`;
+            return;
+        }
+
+        const statusColor = { pending:'#fbbf24', approved:'#34d399', completed:'#60a5fa', rejected:'#f87171' };
+        const statusBg    = { pending:'rgba(251,191,36,0.12)', approved:'rgba(52,211,153,0.12)', completed:'rgba(96,165,250,0.12)', rejected:'rgba(248,113,113,0.12)' };
+
+        container.innerHTML = filtered.map(w => {
+            const sc = statusColor[w.status] || '#aaa';
+            const sb = statusBg[w.status] || 'rgba(255,255,255,0.05)';
+            let actionBtns = '';
+            if (w.status === 'pending') {
+                actionBtns = `
+                    <button onclick="approveAffWd(${w.id})" style="flex:1;padding:0.45rem 0;border-radius:8px;border:1px solid rgba(52,211,153,0.3);background:rgba(52,211,153,0.1);color:#34d399;cursor:pointer;font-size:0.78rem;font-weight:700;">✅ Approve</button>
+                    <button onclick="rejectAffWd(${w.id})" style="flex:1;padding:0.45rem 0;border-radius:8px;border:1px solid rgba(248,113,113,0.3);background:rgba(248,113,113,0.1);color:#f87171;cursor:pointer;font-size:0.78rem;font-weight:700;">❌ Reject</button>`;
+            } else if (w.status === 'approved') {
+                actionBtns = `<button onclick="completeAffWd(${w.id})" style="flex:1;padding:0.45rem 0;border-radius:8px;border:1px solid rgba(96,165,250,0.3);background:rgba(96,165,250,0.1);color:#60a5fa;cursor:pointer;font-size:0.78rem;font-weight:700;">💰 Complete</button>`;
+            } else {
+                actionBtns = '';
+            }
+            return `
+            <div style="border:1px solid var(--adm-border-light); border-radius:12px; padding:1rem; margin-bottom:0.65rem; background:var(--adm-bg-input);">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem; margin-bottom:0.65rem; flex-wrap:wrap;">
+                    <div style="min-width:0; flex:1;">
+                        <div style="font-weight:700; color:var(--adm-text); font-size:0.9rem;">${escHtml(w.username || '—')}</div>
+                        <div style="font-size:0.72rem; color:var(--adm-text-faint);">${escHtml(w.email || '')} · #${w.id}</div>
+                    </div>
+                    <span style="padding:3px 10px; border-radius:20px; font-size:0.72rem; font-weight:700; color:${sc}; background:${sb}; white-space:nowrap;">${w.status}</span>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem 1rem; margin-bottom:0.65rem; font-size:0.8rem;">
+                    <div>
+                        <div style="color:var(--adm-text-faint); font-size:0.7rem;">Jumlah</div>
+                        <div style="color:#f7971e; font-weight:700;">Rp ${Number(w.amount).toLocaleString('id-ID')}</div>
+                    </div>
+                    <div>
+                        <div style="color:var(--adm-text-faint); font-size:0.7rem;">Tanggal</div>
+                        <div style="color:var(--adm-text-muted);">${new Date(w.created_at).toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric'})}</div>
+                    </div>
+                    <div>
+                        <div style="color:var(--adm-text-faint); font-size:0.7rem;">Bank</div>
+                        <div style="color:var(--adm-text); font-weight:600;">${escHtml(w.bank_name)}</div>
+                    </div>
+                    <div>
+                        <div style="color:var(--adm-text-faint); font-size:0.7rem;">No. Rekening</div>
+                        <div style="color:var(--adm-text-muted);">${escHtml(w.account_number)}</div>
+                    </div>
+                    <div style="grid-column:1/-1;">
+                        <div style="color:var(--adm-text-faint); font-size:0.7rem;">Atas Nama</div>
+                        <div style="color:var(--adm-text);">${escHtml(w.account_name)}</div>
+                    </div>
+                    ${w.rejected_reason ? `<div style="grid-column:1/-1;"><div style="color:var(--adm-text-faint); font-size:0.7rem;">Alasan Tolak</div><div style="color:#f87171; font-size:0.8rem;">${escHtml(w.rejected_reason)}</div></div>` : ''}
+                </div>
+                ${actionBtns ? `<div style="display:flex; gap:0.5rem;">${actionBtns}</div>` : ''}
+            </div>`;
+        }).join('');
+    }
+
+    async function approveAffWd(id) {
+        if (!confirm(t('adm_wd_approve_confirm'))) return;
+        showLoading(true);
+        const res = await fetchAPI(`/affiliate/admin/withdrawals/${id}/approve`, { method: 'PATCH' });
+        showLoading(false);
+        if (res?.success) { showToast(t('adm_wd_approved_msg'), 'success'); loadAffiliateAdmin(); }
+        else showToast(res?.message || t('adm_wd_approve_fail'), 'error');
+    }
+
+    async function rejectAffWd(id) {
+        const reason = prompt(t('adm_wd_reject_ph'));
+        if (!reason) return;
+        showLoading(true);
+        const res = await fetchAPI(`/affiliate/admin/withdrawals/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ rejection_reason: reason }) });
+        showLoading(false);
+        if (res?.success) { showToast(t('adm_wd_rejected_msg'), 'success'); loadAffiliateAdmin(); }
+        else showToast(res?.message || t('adm_wd_reject_fail'), 'error');
+    }
+
+    async function completeAffWd(id) {
+        if (!confirm(t('adm_wd_complete_confirm'))) return;
+        showLoading(true);
+        const res = await fetchAPI(`/affiliate/admin/withdrawals/${id}/complete`, { method: 'PATCH' });
+        showLoading(false);
+        if (res?.success) { showToast(t('adm_wd_completed_msg'), 'success'); loadAffiliateAdmin(); }
+        else showToast(res?.message || t('adm_wd_complete_fail'), 'error');
+    }
+
+</script>
+<script src="/js/translations.js"></script>
+<script src="/js/theme-lang.js"></script>
+</body>
+</html>

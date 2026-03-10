@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="auth_login_title">Masuk — Langganin</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" type="image/png" href="/images/logo.png" />
+  <script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);var l=localStorage.getItem('lang');if(l)document.documentElement.setAttribute('lang',l);})()</script>
+</head>
+<body>
+
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-logo"><img src="/images/logo.png" alt="Langganin" style="height: 40px; width: auto; margin-right: 0.6rem; vertical-align: middle;"> <em>Langganin</em></div>
+      <p class="auth-tagline" data-i18n="auth_login_tagline">Masuk untuk mulai belanja</p>
+    </div>
+
+    <div id="alertMsg" class="alert" style="display:none; margin-bottom:1rem;"></div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label class="form-label" data-i18n="auth_email">Email</label>
+        <input type="email" class="form-input" id="email" placeholder="nama@email.com" data-i18n-placeholder="auth_email_ph" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="auth_password">Password</label>
+        <input type="password" class="form-input" id="password" placeholder="••••••••" data-i18n-placeholder="auth_password_ph" required />
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" id="loginBtn" style="margin-top:0.5rem;" data-i18n="auth_btn_login">
+        Masuk
+      </button>
+    </form>
+
+    <div style="text-align:center; margin-top:0.75rem;">
+      <a href="#" id="forgotPasswordBtn" style="font-size:0.85rem; color:var(--text-muted,#888);">Lupa password?</a>
+    </div>
+
+    <!-- Forgot password panel (hidden by default) -->
+    <div id="forgotPanel" style="display:none; margin-top:1rem; padding:1rem; border:1px solid var(--border,#dee2e6); border-radius:8px; background:var(--card-bg,#f8f9fa);">
+      <p style="font-size:0.9rem; margin-bottom:0.75rem; color:var(--text-muted,#888);">Masukkan email akun kamu. Link reset akan dikirim ke <b>Bot Telegram</b> Langganin, atau kamu bisa minta link via bot dengan perintah <code>/lupapassword</code>.</p>
+      <div class="form-group" style="margin-bottom:0.5rem;">
+        <input type="email" class="form-input" id="forgotEmail" placeholder="Email akun kamu" />
+      </div>
+      <div id="forgotMsg" style="display:none; font-size:0.85rem; margin-bottom:0.5rem; padding:0.5rem 0.75rem; border-radius:6px;"></div>
+      <button class="btn btn-primary btn-full" id="forgotSubmitBtn" style="font-size:0.9rem;">
+        Kirim Link Reset
+      </button>
+    </div>
+
+    <div class="auth-footer">
+      <span data-i18n="auth_no_account">Belum punya akun?</span> <a href="/register" data-i18n="auth_register_link">Daftar gratis →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Redirect jika sudah login
+  if (localStorage.getItem('token')) window.location.href = '/products';
+
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const alertDiv = document.getElementById('alertMsg');
+    const btn      = document.getElementById('loginBtn');
+
+    btn.disabled = true;
+    btn.textContent = t('bal_processing');
+    alertDiv.style.display = 'none';
+
+    try {
+      const res  = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        localStorage.setItem('token', data.data.token);
+        alertDiv.className = 'alert alert-success';
+        alertDiv.textContent = t('auth_login_success');
+        alertDiv.style.display = 'block';
+        setTimeout(() => { window.location.href = '/products'; }, 1000);
+      } else {
+        alertDiv.className = 'alert alert-danger';
+        alertDiv.textContent = data.message || t('auth_login_fail');
+        alertDiv.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = t('auth_btn_login');
+      }
+    } catch {
+      alertDiv.className = 'alert alert-danger';
+      alertDiv.textContent = t('bal_topup_error');
+      alertDiv.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = t('auth_btn_login');
+    }
+  });
+
+  // Forgot password panel toggle
+  document.getElementById('forgotPasswordBtn').addEventListener('click', (e) => {
+    e.preventDefault();
+    const panel = document.getElementById('forgotPanel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    if (panel.style.display === 'block') document.getElementById('forgotEmail').focus();
+  });
+
+  document.getElementById('forgotSubmitBtn').addEventListener('click', async () => {
+    const email   = document.getElementById('forgotEmail').value.trim();
+    const msgDiv  = document.getElementById('forgotMsg');
+    const btn     = document.getElementById('forgotSubmitBtn');
+
+    if (!email) {
+      msgDiv.style.cssText = 'display:block; background:#fff3cd; color:#856404;';
+      msgDiv.textContent = 'Masukkan email terlebih dahulu.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Mengirim...';
+    msgDiv.style.display = 'none';
+
+    try {
+      const res  = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      msgDiv.style.cssText = 'display:block; background:#d1e7dd; color:#0f5132;';
+      msgDiv.textContent = data.message || 'Jika email terdaftar, link reset akan dikirim ke bot Telegram.';
+    } catch {
+      msgDiv.style.cssText = 'display:block; background:#f8d7da; color:#842029;';
+      msgDiv.textContent = 'Gagal terhubung ke server.';
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Kirim Link Reset';
+  });</script>
+<script src="/js/translations.js"></script>
+<script src="/js/theme-lang.js"></script>
+<script src="/js/support-widget.js"></script>
+</body>
+</html>
