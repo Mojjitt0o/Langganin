@@ -64,6 +64,12 @@ app.use('/api/withdrawal', withdrawalRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/affiliate', affiliateRoutes);
 
+// Expose Telegram bot link for frontend
+app.get('/api/bot-info', (req, res) => {
+    const username = process.env.TELEGRAM_BOT_USERNAME || '';
+    res.json({ bot_url: username ? `https://t.me/${username}` : null });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({

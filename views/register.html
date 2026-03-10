@@ -98,12 +98,12 @@
   }
 
   function buildRefMsg(username, discountType, discountValue) {
-      let msg = '✔ Kode valid — diundang oleh <b>' + username + '</b>';
+      let msg = t('reg_ref_valid').replace('{username}', username);
       if (discountValue > 0) {
           const disc = discountType === 'percentage'
               ? discountValue + '%'
               : 'Rp ' + Number(discountValue).toLocaleString('id-ID');
-          msg += ' 🎁 <b>Kamu dapat diskon ' + disc + '</b> di setiap pembelian!';
+          msg += ' ' + t('reg_ref_discount').replace('{disc}', disc);
       }
       return msg;
   }
@@ -121,12 +121,12 @@
       refInput.value    = refFromUrl.toUpperCase();
       refInput.readOnly = true;
       refInput.style.fontWeight = '600';
-      setRefState('loading', 'Memeriksa kode...');
+      setRefState('loading', t('reg_ref_checking'));
       fetch('/api/affiliate/check/' + encodeURIComponent(refFromUrl.toUpperCase()))
           .then(r => r.json())
           .then(data => {
               if (data.found) setRefState('ok', buildRefMsg(data.username, data.discount_type, data.discount_value));
-              else            setRefState('err', 'Kode referral tidak ditemukan');
+              else            setRefState('err', t('reg_ref_not_found'));
           }).catch(() => clearRefState());
   }
 
@@ -139,7 +139,7 @@
       const code = this.value.trim();
       if (!code) { clearRefState(); return; }
 
-      setRefState('loading', 'Memeriksa kode...');
+      setRefState('loading', t('reg_ref_checking'));
       refTimer = setTimeout(async () => {
           try {
               const res  = await fetch('/api/affiliate/check/' + encodeURIComponent(code));
@@ -147,7 +147,7 @@
               if (data.found) {
                   setRefState('ok', buildRefMsg(data.username, data.discount_type, data.discount_value));
               } else {
-                  setRefState('err', 'Kode referral tidak ditemukan');
+                  setRefState('err', t('reg_ref_not_found'));
               }
           } catch {
               clearRefState();

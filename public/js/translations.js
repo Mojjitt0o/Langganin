@@ -565,6 +565,49 @@ id: {
   adm_aff_no_data: 'Belum ada affiliate',
   adm_aff_wd_title: '💸 Penarikan Komisi Affiliate',
   adm_aff_no_wd: 'Tidak ada penarikan affiliate',
+
+  // ─── Lupa Password (panel di halaman Login) ───
+  forgot_btn: 'Lupa password?',
+  forgot_desc: 'Masukkan email akun kamu. Link reset akan dikirim langsung ke <b>Bot Telegram</b> Langganin — atau langsung buka bot dan ketik <code>/lupapassword</code>.',
+  forgot_email_ph: 'Email akun kamu',
+  forgot_submit_btn: 'Kirim Link Reset',
+  forgot_email_req: 'Masukkan email terlebih dahulu.',
+  forgot_sending: 'Mengirim...',
+  forgot_no_conn: 'Gagal terhubung ke server.',
+  forgot_success_title: 'Link reset telah dikirim!',
+  forgot_success_body: 'Cek Bot Telegram Langganin untuk menerima link reset password kamu.',
+  forgot_open_bot: '💬 Buka Bot Langganin →',
+  forgot_cta_manual: 'Cari bot @LangganinBot di Telegram, lalu ketik /lupapassword.',
+
+  // ─── Halaman Reset Password ───
+  rp_title: 'Reset Password — Langganin',
+  rp_tagline: 'Buat password baru',
+  rp_checking: 'Memeriksa link reset...',
+  rp_invalid_title: 'Link Tidak Valid',
+  rp_invalid_desc: 'Link reset password sudah kedaluwarsa atau sudah digunakan. Silakan minta link reset baru via bot Telegram.',
+  rp_back_login: '← Kembali ke Login',
+  rp_label_new_pw: 'Password Baru',
+  rp_ph_new_pw: 'Minimal 6 karakter',
+  rp_label_confirm_pw: 'Konfirmasi Password',
+  rp_ph_confirm_pw: 'Ketik ulang password baru',
+  rp_btn_save: '🔐 Simpan Password Baru',
+  rp_saving: 'Menyimpan...',
+  rp_success_title: 'Password Berhasil Direset!',
+  rp_success_desc: 'Password baru kamu sudah aktif. Sekarang kamu bisa login.',
+  rp_login_now: '→ Login Sekarang',
+  rp_pw_mismatch: 'Password dan konfirmasi tidak sama.',
+  rp_pw_too_short: 'Password minimal 6 karakter.',
+  rp_save_fail: 'Terjadi kesalahan. Silakan coba lagi.',
+  rp_no_conn: 'Gagal terhubung ke server. Periksa koneksi kamu.',
+
+  // ─── Register — Referral Validation ───
+  reg_ref_valid: '✔ Kode valid — diundang oleh <b>{username}</b>',
+  reg_ref_discount: '🎁 <b>Kamu dapat diskon {disc}</b> di setiap pembelian!',
+  reg_ref_checking: 'Memeriksa kode...',
+  reg_ref_not_found: 'Kode referral tidak ditemukan',
+
+  // ─── Products ───
+  prd_sync_title: 'Sync produk dari supplier',
 },
 
 en: {
@@ -1130,5 +1173,48 @@ en: {
   adm_aff_no_data: 'No affiliates yet',
   adm_aff_wd_title: '💸 Affiliate Commission Withdrawals',
   adm_aff_no_wd: 'No affiliate withdrawals',
+
+  // ─── Forgot Password (Login page panel) ───
+  forgot_btn: 'Forgot password?',
+  forgot_desc: 'Enter your account email. The reset link will be sent directly to the Langganin <b>Telegram Bot</b> — or open the bot directly and type <code>/lupapassword</code>.',
+  forgot_email_ph: 'Your account email',
+  forgot_submit_btn: 'Send Reset Link',
+  forgot_email_req: 'Please enter your email first.',
+  forgot_sending: 'Sending...',
+  forgot_no_conn: 'Failed to connect to server.',
+  forgot_success_title: 'Reset link sent!',
+  forgot_success_body: 'Check the Langganin Telegram Bot to receive your password reset link.',
+  forgot_open_bot: '💬 Open Langganin Bot →',
+  forgot_cta_manual: 'Search for @LangganinBot on Telegram, then type /lupapassword.',
+
+  // ─── Reset Password Page ───
+  rp_title: 'Reset Password — Langganin',
+  rp_tagline: 'Create new password',
+  rp_checking: 'Checking reset link...',
+  rp_invalid_title: 'Invalid Link',
+  rp_invalid_desc: 'The password reset link has expired or has already been used. Please request a new reset link via the Telegram bot.',
+  rp_back_login: '← Back to Login',
+  rp_label_new_pw: 'New Password',
+  rp_ph_new_pw: 'Minimum 6 characters',
+  rp_label_confirm_pw: 'Confirm Password',
+  rp_ph_confirm_pw: 'Repeat new password',
+  rp_btn_save: '🔐 Save New Password',
+  rp_saving: 'Saving...',
+  rp_success_title: 'Password Reset Successfully!',
+  rp_success_desc: 'Your new password is active. You can now login.',
+  rp_login_now: '→ Login Now',
+  rp_pw_mismatch: 'Password and confirmation do not match.',
+  rp_pw_too_short: 'Password must be at least 6 characters.',
+  rp_save_fail: 'An error occurred. Please try again.',
+  rp_no_conn: 'Failed to connect to server. Check your connection.',
+
+  // ─── Register — Referral Validation ───
+  reg_ref_valid: '✔ Valid code — invited by <b>{username}</b>',
+  reg_ref_discount: '🎁 <b>You get a {disc} discount</b> on every purchase!',
+  reg_ref_checking: 'Checking code...',
+  reg_ref_not_found: 'Referral code not found',
+
+  // ─── Products ───
+  prd_sync_title: 'Sync products from supplier',
 }
 };
