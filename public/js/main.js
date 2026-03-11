@@ -12,7 +12,7 @@ const formatRupiah = (number) => {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
     }).format(number);
-};
+}; 
 
 const showLoading = (elementId) => {
     const element = document.getElementById(elementId);
