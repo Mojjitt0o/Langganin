@@ -2,6 +2,15 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const logger = require('../services/logger');
+
+// Cookie options — httpOnly prevents XSS token theft
+const COOKIE_OPTS = {
+    httpOnly: true,
+    secure:   process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge:   24 * 60 * 60 * 1000 // 24 hours
+};
 
 const authController = {
     async register(req, res) {
@@ -40,23 +49,22 @@ const authController = {
                 }
             }
 
-            // Generate token
+            // Generate token & set as httpOnly cookie
             const token = jwt.sign(
                 { id: userId, email },
                 process.env.JWT_SECRET,
                 { expiresIn: '24h' }
             );
+            res.cookie('auth_token', token, COOKIE_OPTS);
 
             res.status(201).json({
                 success: true,
                 message: 'Registration successful',
-                data: { token, userId }
+                data: { userId }
             });
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                message: error.message
-            });
+            logger.error('Register error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal mendaftar, coba lagi.' });
         }
     },
 
@@ -82,116 +90,67 @@ const authController = {
                 });
             }
 
-            // Generate token
+            // Generate token & set as httpOnly cookie
             const token = jwt.sign(
                 { id: user.id, email: user.email, is_admin: user.is_admin },
                 process.env.JWT_SECRET,
                 { expiresIn: '24h' }
             );
+            res.cookie('auth_token', token, COOKIE_OPTS);
 
             // Set session
-            req.session.userId = user.id;
+            req.session.userId    = user.id;
             req.session.userEmail = user.email;
 
             res.json({
                 success: true,
                 message: 'Login successful',
                 data: {
-                    token,
                     user: {
-                        id: user.id,
+                        id:       user.id,
                         username: user.username,
-                        email: user.email,
-                        balance: user.balance,
+                        email:    user.email,
+                        balance:  user.balance,
                         is_admin: user.is_admin
                     }
                 }
             });
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                message: error.message
-            });
+            logger.error('Login error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal login, coba lagi.' });
         }
     },
 
     async logout(req, res) {
-        req.session.destroy();
-        res.json({
-            success: true,
-            message: 'Logout successful'
+        req.session.destroy((err) => {
+            if (err) logger.error('Session destroy error: ' + err.message);
         });
+        res.clearCookie('auth_token');
+        res.json({ success: true, message: 'Logout successful' });
     },
 
     async getProfile(req, res) {
         try {
             const user = await User.findById(req.userId);
             if (!user) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'User not found'
-                });
+                return res.status(404).json({ success: false, message: 'User not found' });
             }
-
-            res.json({
-                success: true,
-                data: user
-            });
+            res.json({ success: true, data: user });
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                message: error.message
-            });
-        }
-    },
-
-    async topup(req, res) {
-        try {
-            const { amount } = req.body;
-            const userId = req.userId;
-
-            if (!amount || amount <= 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid amount'
-                });
-            }
-
-            await User.updateBalance(userId, amount);
-
-            // Record transaction
-            const db = require('../config/database');
-            await db.query(
-                `INSERT INTO transactions (user_id, type, amount, description) 
-                 VALUES ($1, 'topup', $2, $3)`,
-                [userId, amount, 'Top up saldo']
-            );
-
-            res.json({
-                success: true,
-                message: 'Top up successful',
-                data: { amount }
-            });
-        } catch (error) {
-            res.status(500).json({
-                success: false,
-                message: error.message
-            });
+            logger.error('getProfile error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal mengambil profil.' });
         }
     },
 
     async getProfitSummary(req, res) {
         try {
             const Profit = require('../models/Profit');
-            const total = await Profit.getTotalProfit(req.userId);
+            const total   = await Profit.getTotalProfit(req.userId);
             const history = await Profit.getProfitHistory(req.userId);
-
-            res.json({
-                success: true,
-                data: { total, history }
-            });
+            res.json({ success: true, data: { total, history } });
         } catch (error) {
-            res.status(500).json({ success: false, message: error.message });
+            logger.error('getProfitSummary error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal mengambil data profit.' });
         }
     },
 
@@ -201,7 +160,8 @@ const authController = {
             const users = await User.findAll();
             res.json({ success: true, data: users });
         } catch (error) {
-            res.status(500).json({ success: false, message: error.message });
+            logger.error('listUsers error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal mengambil data user.' });
         }
     },
 
@@ -226,7 +186,8 @@ const authController = {
                 data: updated
             });
         } catch (error) {
-            res.status(500).json({ success: false, message: error.message });
+            logger.error('setAdmin error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal mengubah role.' });
         }
     },
 
@@ -234,7 +195,6 @@ const authController = {
     async updateProfile(req, res) {
         try {
             const { whatsapp } = req.body;
-            // Normalise: strip non-digit, pastikan prefix 62
             let wa = whatsapp ? String(whatsapp).replace(/\D/g, '') : null;
             if (wa) {
                 if (wa.startsWith('0')) wa = '62' + wa.slice(1);
@@ -243,11 +203,12 @@ const authController = {
             const updated = await User.updateWhatsapp(req.userId, wa);
             res.json({ success: true, message: 'Profil berhasil diperbarui', data: updated });
         } catch (error) {
-            res.status(500).json({ success: false, message: error.message });
+            logger.error('updateProfile error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal memperbarui profil.' });
         }
     },
 
-    // Admin only: ambil nomor WA user tertentu (untuk kirim WA)
+    // Admin only: ambil nomor WA user tertentu
     async getUserWhatsapp(req, res) {
         try {
             const targetId = parseInt(req.params.id);
@@ -255,40 +216,38 @@ const authController = {
             if (!user) return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
             res.json({ success: true, data: { id: user.id, username: user.username, email: user.email, whatsapp: user.whatsapp } });
         } catch (error) {
-            res.status(500).json({ success: false, message: error.message });
+            logger.error('getUserWhatsapp error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal mengambil data user.' });
         }
     },
 
-    // ─── Forgot Password: buat token & kirim link via Telegram bot ───
+    // ─── Forgot Password ────────────────────────────────────────────────────
     async forgotPassword(req, res) {
         try {
             const { email } = req.body;
             if (!email) return res.status(400).json({ success: false, message: 'Email harus diisi' });
 
             const user = await User.findByEmail(email.toLowerCase().trim());
-            // Selalu return success untuk keamanan (jangan beri tahu apakah email terdaftar)
+            // Always return success to avoid user enumeration
             if (!user) {
                 return res.json({ success: true, message: 'Jika email terdaftar, link reset akan dikirim ke bot Telegram.' });
             }
 
-            const db = require('../config/database');
+            const db     = require('../config/database');
             const crypto = require('crypto');
 
-            // Hapus token lama yang belum dipakai
             await db.query('DELETE FROM password_reset_tokens WHERE user_id = $1 AND used = FALSE', [user.id]);
 
-            // Buat token baru (1 jam)
-            const token = crypto.randomBytes(48).toString('hex');
+            const token     = crypto.randomBytes(48).toString('hex');
             const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
             await db.query(
                 'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
                 [user.id, token, expiresAt]
             );
 
-            const appUrl = process.env.APP_URL || 'https://www.langganin.my.id';
+            const appUrl    = process.env.APP_URL || 'https://www.langganin.my.id';
             const resetLink = `${appUrl}/reset-password?token=${token}`;
 
-            // Kirim via Telegram bot ke admin (admin forward ke user, atau jika user sudah chat bot)
             const telegramBot = require('../services/telegramBot');
             const msgText =
                 `🔐 <b>Permintaan Reset Password</b>\n\n` +
@@ -298,17 +257,16 @@ const authController = {
                 `<a href="${resetLink}">${resetLink}</a>\n\n` +
                 `⚠️ Jika kamu tidak meminta ini, abaikan pesan ini.`;
 
-            // Kirim notifikasi ke admin; jika user pernah chat bot, bot flow (/lupapassword) lebih dianjurkan
             await telegramBot.sendMessage(process.env.TELEGRAM_ADMIN_CHAT_ID, msgText, { disable_web_page_preview: true });
 
             res.json({ success: true, message: 'Jika email terdaftar, link reset akan dikirim ke bot Telegram.' });
         } catch (error) {
-            console.error('forgotPassword error:', error.message);
+            logger.error('forgotPassword error: ' + error.message);
             res.status(500).json({ success: false, message: 'Terjadi kesalahan, coba lagi.' });
         }
     },
 
-    // ─── Reset Password: validasi token & update password ───
+    // ─── Reset Password ────────────────────────────────────────────────────
     async resetPassword(req, res) {
         try {
             const { token, password } = req.body;
@@ -329,23 +287,23 @@ const authController = {
             }
 
             const resetData = rows[0];
-            const hashed = await bcrypt.hash(password, 10);
+            const hashed    = await bcrypt.hash(password, 10);
 
             await db.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, resetData.user_id]);
+            // Immediately invalidate token (single-use)
             await db.query('UPDATE password_reset_tokens SET used = TRUE WHERE id = $1', [resetData.id]);
 
-            // Kirim konfirmasi ke user (via bot jika pakai /lupapassword) dan ke admin
             const telegramBot = require('../services/telegramBot');
             await telegramBot.notifyPasswordResetSuccess(resetData.user_id, resetData.username);
 
             res.json({ success: true, message: 'Password berhasil direset! Silakan login.' });
         } catch (error) {
-            console.error('resetPassword error:', error.message);
+            logger.error('resetPassword error: ' + error.message);
             res.status(500).json({ success: false, message: 'Terjadi kesalahan, coba lagi.' });
         }
     },
 
-    // ─── Validate reset token (untuk cek sebelum tampil form) ───
+    // ─── Validate reset token ─────────────────────────────────────────────
     async validateResetToken(req, res) {
         try {
             const { token } = req.params;
@@ -358,7 +316,7 @@ const authController = {
                 return res.json({ success: false, valid: false });
             }
             res.json({ success: true, valid: true });
-        } catch (error) {
+        } catch {
             res.status(500).json({ success: false, valid: false });
         }
     }

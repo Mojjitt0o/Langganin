@@ -1,6 +1,8 @@
 // controllers/topupController.js
 const db = require('../config/database');
 const midtransClient = require('midtrans-client');
+const crypto = require('crypto');
+const logger = require('../services/logger');
 require('dotenv').config();
 
 // Initialize Midtrans Snap
@@ -114,12 +116,8 @@ class TopupController {
             });
 
         } catch (error) {
-            console.error('Topup error:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Gagal membuat transaksi topup',
-                error: error.message
-            });
+            logger.error('Topup error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal membuat transaksi topup' });
         }
     }
 
@@ -127,12 +125,28 @@ class TopupController {
     static async handleNotification(req, res) {
         try {
             const notification = req.body;
-            
+
+            // ── Verify Midtrans signature ─────────────────────────────────────
+            // SHA512(orderId + statusCode + grossAmount + serverKey)
+            const expectedSig = crypto
+                .createHash('sha512')
+                .update(
+                    `${notification.order_id}${notification.status_code}` +
+                    `${notification.gross_amount}${process.env.MIDTRANS_SERVER_KEY}`
+                )
+                .digest('hex');
+
+            if (!notification.signature_key || notification.signature_key !== expectedSig) {
+                logger.warn(`Midtrans: invalid signature for order ${notification.order_id}`);
+                return res.status(401).json({ success: false, message: 'Invalid signature' });
+            }
+            // ─────────────────────────────────────────────────────────────────
+
             const orderId = notification.order_id;
             const transactionStatus = notification.transaction_status;
             const fraudStatus = notification.fraud_status;
 
-            console.log(`Notification received for ${orderId}:`, transactionStatus);
+            logger.info(`Midtrans notification: ${orderId} → ${transactionStatus}`);
 
             // Get transaction from database
             const [rows] = await db.query(
@@ -206,17 +220,14 @@ class TopupController {
                     ]
                 );
 
-                console.log(`✅ Balance added for user ${transaction.user_id}: Rp ${transaction.amount}`);
+                logger.info(`Balance +${transaction.amount} for user ${transaction.user_id} (order ${orderId})`);
             }
 
             res.json({ success: true });
 
         } catch (error) {
-            console.error('Notification error:', error);
-            res.status(500).json({
-                success: false,
-                message: error.message
-            });
+            logger.error('Midtrans notification error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
         }
     }
 

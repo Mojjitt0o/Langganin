@@ -3,6 +3,7 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const User = require('../models/User');
 const axios = require('axios');
+const logger = require('../services/logger');
 
 const orderController = {
     async createOrder(req, res) {
@@ -11,36 +12,25 @@ const orderController = {
             const userId = req.userId;
 
             if (!variant_id) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'variant_id harus diisi'
-                });
+                return res.status(400).json({ success: false, message: 'variant_id harus diisi' });
             }
 
             const qty = parseInt(quantity) || 1;
             if (qty < 1) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Quantity minimal 1'
-                });
+                return res.status(400).json({ success: false, message: 'Quantity minimal 1' });
             }
 
-            const order = await Order.create({
-                variant_id,
-                quantity: qty,
-                voucher_code
-            }, userId);
+            const order = await Order.create({ variant_id, quantity: qty, voucher_code }, userId);
 
-            res.json({
-                success: true,
-                message: 'Order berhasil dibuat! Tunggu konfirmasi.',
-                data: order
-            });
+            res.json({ success: true, message: 'Order berhasil dibuat! Tunggu konfirmasi.', data: order });
         } catch (error) {
-            console.error('Order error:', error.message);
-            res.status(500).json({
+            logger.error('Order error: ' + error.message);
+            // Expose user-facing errors (balance / variant not found), but not raw DB errors
+            const safeMessages = ['Saldo tidak cukup', 'Variant tidak ditemukan', 'User tidak ditemukan', 'Supplier error'];
+            const isSafe = safeMessages.some(m => error.message.startsWith(m));
+            res.status(isSafe ? 400 : 500).json({
                 success: false,
-                message: error.message
+                message: isSafe ? error.message : 'Gagal membuat order. Silakan coba lagi.'
             });
         }
     },
@@ -48,17 +38,10 @@ const orderController = {
     async getUserOrders(req, res) {
         try {
             const orders = await Order.getUserOrders(req.userId);
-
-            res.json({
-                success: true,
-                message: 'Orders fetched successfully',
-                data: orders
-            });
+            res.json({ success: true, message: 'Orders fetched successfully', data: orders });
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                message: error.message
-            });
+            logger.error('getUserOrders error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal mengambil riwayat order.' });
         }
     },
 
@@ -68,43 +51,41 @@ const orderController = {
             const response = await axios.post(`${process.env.WR_API_URL}/balance`, {
                 api_key: process.env.WR_API_KEY
             }, { timeout: 10000 });
-
             res.json(response.data);
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                message: `Gagal cek saldo WR: ${error.message}`
-            });
+            logger.error('getWRBalance error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal cek saldo WR.' });
         }
     },
 
-    // Dashboard profit total web (admin only)
+    // Dashboard profit total web (admin only) with pagination
     async getProfitSummary(req, res) {
         try {
-            const totalProfit = await Order.getTotalProfit();
-            const allOrders = await Order.getAllOrders();
+            const page  = Math.max(1, parseInt(req.query.page)  || 1);
+            const limit = Math.min(200, parseInt(req.query.limit) || 50);
 
-            // Hitung statistik
-            const totalRevenue = allOrders.reduce((sum, o) => sum + parseFloat(o.our_total || 0), 0);
-            const totalModal = allOrders.reduce((sum, o) => sum + parseFloat(o.original_total || 0), 0);
-            const successOrders = allOrders.filter(o => o.status === 'success' || o.status === 'completed' || o.status === 'done').length;
+            const totalProfit = await Order.getTotalProfit();
+            const { orders, total } = await Order.getAllOrdersPaginated(page, limit);
+
+            const totalRevenue = orders.reduce((sum, o) => sum + parseFloat(o.our_total      || 0), 0);
+            const totalModal   = orders.reduce((sum, o) => sum + parseFloat(o.original_total || 0), 0);
+            const successOrders = orders.filter(o => ['success','completed','done'].includes(o.status)).length;
 
             res.json({
                 success: true,
                 data: {
-                    total_profit: totalProfit,
-                    total_revenue: totalRevenue,
-                    total_modal: totalModal,
-                    total_orders: allOrders.length,
+                    total_profit:   totalProfit,
+                    total_revenue:  totalRevenue,
+                    total_modal:    totalModal,
+                    total_orders:   total,
                     success_orders: successOrders,
-                    orders: allOrders.slice(0, 50)
-                }
+                    orders
+                },
+                pagination: { page, limit, total, pages: Math.ceil(total / limit) }
             });
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                message: error.message
-            });
+            logger.error('getProfitSummary error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal mengambil data profit.' });
         }
     },
 
@@ -115,24 +96,16 @@ const orderController = {
             const { account_details } = req.body;
 
             if (!account_details || typeof account_details !== 'object') {
-                return res.status(400).json({
-                    success: false,
-                    message: 'account_details (objek) wajib diisi'
-                });
+                return res.status(400).json({ success: false, message: 'account_details (objek) wajib diisi' });
             }
 
             const order = await Order.completeOrder(order_id, account_details);
-            if (!order) {
-                return res.status(404).json({ success: false, message: 'Order tidak ditemukan' });
-            }
+            if (!order) return res.status(404).json({ success: false, message: 'Order tidak ditemukan' });
 
-            res.json({
-                success: true,
-                message: 'Order berhasil diselesaikan & info akun tersimpan.',
-                data: order
-            });
+            res.json({ success: true, message: 'Order berhasil diselesaikan & info akun tersimpan.', data: order });
         } catch (error) {
-            res.status(500).json({ success: false, message: error.message });
+            logger.error('completeOrder error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal menyelesaikan order.' });
         }
     },
 
@@ -147,13 +120,12 @@ const orderController = {
             }
 
             const order = await Order.updateStatus(order_id, status);
-            if (!order) {
-                return res.status(404).json({ success: false, message: 'Order tidak ditemukan' });
-            }
+            if (!order) return res.status(404).json({ success: false, message: 'Order tidak ditemukan' });
 
             res.json({ success: true, message: `Status diubah ke ${status}`, data: order });
         } catch (error) {
-            res.status(500).json({ success: false, message: error.message });
+            logger.error('updateOrderStatus error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal mengubah status order.' });
         }
     },
 
@@ -161,12 +133,11 @@ const orderController = {
     async getOrderDetail(req, res) {
         try {
             const order = await Order.getOrderById(req.params.order_id);
-            if (!order) {
-                return res.status(404).json({ success: false, message: 'Order tidak ditemukan' });
-            }
+            if (!order) return res.status(404).json({ success: false, message: 'Order tidak ditemukan' });
             res.json({ success: true, data: order });
         } catch (error) {
-            res.status(500).json({ success: false, message: error.message });
+            logger.error('getOrderDetail error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal mengambil detail order.' });
         }
     }
 };

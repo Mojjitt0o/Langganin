@@ -1,4 +1,153 @@
-# 🎉 PERUBAHAN BESAR - LANGGANIN v2.0
+# 🔐 LANGGANIN v3.0 — Security & Refactor Update
+
+## 📅 Tanggal: Maret 2026
+
+---
+
+## 🛡️ Perbaikan Keamanan (Security Fixes)
+
+### 1. **Verifikasi Signature Midtrans** *(KRITIS)*
+- Endpoint `/api/topup/notification` sekarang memverifikasi `signature_key` dari Midtrans  
+  menggunakan SHA512(`orderId + statusCode + grossAmount + serverKey`)
+- Sebelumnya: siapapun bisa forge payload dan menambah saldo secara gratis
+- **File:** `controllers/topupController.js`
+
+### 2. **Hapus Endpoint Topup Manual** *(KRITIS)*
+- `POST /api/auth/topup` dihapus — endpoint ini memungkinkan user menambah saldo sendiri  
+  tanpa pembayaran apapun (dev shortcut yang tidak sengaja masuk production)
+- **File:** `routes/authRoutes.js`, `controllers/authController.js`
+
+### 3. **Fix Crash pada WR Webhook Signature Check** *(KRITIS)*
+- `crypto.timingSafeEqual` sebelumnya crash jika header `http_x_premiy_signature` kosong  
+  karena `Buffer.from(undefined)` melempar exception
+- Sekarang: header dicek terlebih dahulu, jika tidak ada langsung return 401
+- **File:** `controllers/webhookController.js`
+
+### 4. **JWT disimpan sebagai httpOnly Cookie** *(TINGGI)*
+- Token sebelumnya disimpan di `localStorage` → rentan dicuri via XSS
+- Sekarang server menyimpan JWT sebagai cookie `httpOnly; Secure; SameSite=lax`
+- Frontend tidak lagi punya akses ke raw token — hanya menyimpan data profil yang aman
+- **File:** `controllers/authController.js`, `middleware/auth.js`, `public/js/main.js`
+
+### 5. **CORS Dibatasi ke Domain Sendiri** *(TINGGI)*
+- Sebelumnya: `app.use(cors())` menerima request dari semua origin
+- Sekarang: hanya mengizinkan origin dari `APP_URL` (production) atau `localhost:3000` (dev)
+- **File:** `server.js`
+
+### 6. **Rate Limit Khusus untuk Login** *(TINGGI)*
+- Login sekarang dibatasi 5 percobaan per 15 menit per IP (sebelumnya ikut limit umum 100/15 menit)
+- Mencegah brute-force serangan pada endpoint login
+- **File:** `routes/authRoutes.js`
+
+### 7. **Proteksi Halaman Admin di Server-Side** *(TINGGI)*
+- Sebelumnya: `GET /admin` langsung serve HTML tanpa cek auth — siapapun bisa baca source-nya
+- Sekarang: middleware `requireAdminPage` memverifikasi JWT cookie dan status admin di DB
+- Non-admin di-redirect ke `/login`; token tidak valid → redirect ke `/login`
+- **File:** `middleware/auth.js`, `server.js`
+
+### 8. **Hapus `error.message` dari Response 500** *(TINGGI)*
+- Semua controller tidak lagi mengirimkan `error.message` ke client pada 500 error
+- Pesan internal DB/stack tidak bocor ke publik
+- Error di-log ke Winston, tapi client hanya menerima pesan generik
+
+---
+
+## 🐛 Bug Fixes
+
+### 9. **DB Transaction pada `Order.create()`** 
+- Balance dipotong, order disimpan ke DB, dan profit dicatat sekarang dalam satu `BEGIN/COMMIT` transaction
+- Kalau ada error di tengah, semua dirollback — tidak ada saldo hilang tanpa order tercatat
+- Ditambahkan optimistic lock check: `UPDATE users SET balance = balance - $1 WHERE id = $2 AND balance >= $1`
+- **File:** `models/Order.js`
+
+### 10. **Fix Tipe Transaksi Withdrawal**
+- Withdrawal sebelumnya dicatat dengan tipe `'topup'` (salah) dengan amount negatif
+- Sekarang dicatat dengan tipe `'withdrawal'` yang semantik benar
+- **File:** `controllers/withdrawalController.js`
+
+### 11. **Fix `session.destroy()` Tanpa Callback**
+- `req.session.destroy()` sekarang dipanggil dengan callback untuk menangkap error silently
+- **File:** `controllers/authController.js`
+
+---
+
+## ✨ Fitur Baru
+
+### 12. **Structured Logging dengan Winston**
+- Menggantikan semua `console.log/error` dengan Winston logger
+- HTTP request logging dengan format: `METHOD /path statusCode Xms - IP`
+- Log level otomatis: `debug` di development, `info` di production
+- **File Baru:** `services/logger.js`
+
+### 13. **Health Check Verifikasi Database**
+- `GET /api/health` sekarang menjalankan test query ke PostgreSQL
+- Jika DB tidak bisa dijangkau, API mengembalikan status 503 (bukan 200 like before)
+- **File:** `server.js`
+
+### 14. **Pagination pada Admin Endpoints**
+- `GET /api/orders/profit-summary?page=1&limit=50` — admin order list
+- `GET /api/withdrawal/admin/all?page=1&limit=50&status=pending` — withdrawal list
+- Tidak lagi hard-cap 200 rows; response menyertakan `pagination` metadata
+- **File:** `controllers/orderController.js`, `controllers/withdrawalController.js`, `models/Order.js`
+
+### 15. **Telegram Webhook Mode (Production)**
+- Tambahkan `TELEGRAM_USE_WEBHOOK=true` ke `.env` untuk menggunakan Telegram webhook  
+  (lebih reliable di Railway vs long-polling)
+- Set webhook URL otomatis di startup: `{APP_URL}/api/telegram/webhook`
+- Endpoint baru: `POST /api/telegram/webhook`
+- Default masih polling (untuk kompatibilitas development)
+- **File:** `services/telegramBot.js`, `server.js`
+
+---
+
+## ⚙️ Perubahan Konfigurasi `.env`
+
+Tambahkan ke file `.env`:
+
+```env
+# Telegram mode (opsional — default: polling)
+# Set 'true' di production Railway untuk efisiensi
+TELEGRAM_USE_WEBHOOK=true
+
+# Log level (opsional — default: info di production, debug di development)
+LOG_LEVEL=info
+```
+
+**Penting:** `APP_URL` **wajib diisi** jika menggunakan `TELEGRAM_USE_WEBHOOK=true`:
+```env
+APP_URL=https://your-railway-domain.up.railway.app
+```
+
+---
+
+## 🔄 API Changes
+
+| Perubahan | Detail |
+|---|---|
+| `POST /api/auth/topup` | ❌ **DIHAPUS** (insecure dev shortcut) |
+| `GET /admin` | Sekarang memerlukan auth admin (server-side) |
+| `GET /api/health` | Sekarang verifikasi DB connectivity |
+| `GET /api/orders/profit-summary` | Mendukung `?page=1&limit=50` |
+| `GET /api/withdrawal/admin/all` | Mendukung `?page=1&limit=50&status=pending` |
+| `POST /api/telegram/webhook` | ✅ Baru — endpoint Telegram webhook |
+
+---
+
+## 📦 Dependencies Baru
+
+```json
+"cookie-parser": "^1.4.7",
+"winston": "^3.19.0"
+```
+
+Install:
+```bash
+npm install
+```
+
+---
+
+
 
 ## ✨ Fitur Baru yang Sudah Ditambahkan:
 

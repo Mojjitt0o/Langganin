@@ -1,158 +1,165 @@
 // server.js
-const express = require('express');
-const path = require('path');
-const cors = require('cors');
-const session = require('express-session');
+const express    = require('express');
+const path       = require('path');
+const cors       = require('cors');
+const session    = require('express-session');
 const bodyParser = require('body-parser');
-const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
+const rateLimit  = require('express-rate-limit');
 require('dotenv').config();
 
-const authRoutes = require('./routes/authRoutes');
-const productRoutes = require('./routes/productRoutes');
-const orderRoutes = require('./routes/orderRoutes');
-const webhookRoutes = require('./routes/webhookRoutes');
-const topupRoutes = require('./routes/topupRoutes');
+const logger = require('./services/logger');
+
+const authRoutes       = require('./routes/authRoutes');
+const productRoutes    = require('./routes/productRoutes');
+const orderRoutes      = require('./routes/orderRoutes');
+const webhookRoutes    = require('./routes/webhookRoutes');
+const topupRoutes      = require('./routes/topupRoutes');
 const withdrawalRoutes = require('./routes/withdrawalRoutes');
-const supportRoutes = require('./routes/supportRoutes');
-const affiliateRoutes = require('./routes/affiliateRoutes');
-const telegramBot = require('./services/telegramBot');
+const supportRoutes    = require('./routes/supportRoutes');
+const affiliateRoutes  = require('./routes/affiliateRoutes');
+const authMiddleware   = require('./middleware/auth');
+const telegramBot      = require('./services/telegramBot');
 
 const app = express();
 
-// Trust proxy - Required for Railway, Heroku, and other platforms behind reverse proxy
-// This allows express-rate-limit to correctly identify users by their real IP
+// Trust proxy — required for Railway / Heroku (rate-limit real IP detection)
 app.set('trust proxy', 1);
 
-// Rate limiting
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
-    validate: { xForwardedForHeader: false } // Handled by trust proxy setting above
-});
+// ── CORS ──────────────────────────────────────────────────────────────────────
+// Restrict to own domain in production; allow localhost in development
+const allowedOrigins = process.env.NODE_ENV === 'production'
+    ? [process.env.APP_URL].filter(Boolean)
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'];
 
-// Middleware
-app.use(cors());
+app.use(cors({
+    origin(origin, callback) {
+        // Allow same-origin requests (no Origin header) and listed origins
+        if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+        callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true // required for cookie-based auth
+}));
+
+// ── Middleware ────────────────────────────────────────────────────────────────
+app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/api/', limiter);
 
-// Session configuration
+// ── HTTP request logging ──────────────────────────────────────────────────────
+app.use(logger.httpMiddleware);
+
+// ── Rate limiting — general API (100 req / 15 min) ────────────────────────────
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    validate: { xForwardedForHeader: false }
+});
+app.use('/api/', apiLimiter);
+
+// ── Session ───────────────────────────────────────────────────────────────────
 app.use(session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || (() => { throw new Error('SESSION_SECRET is not set'); })(),
     resave: false,
     saveUninitialized: false,
-    cookie: { 
-        secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        sameSite: 'lax'
+    cookie: {
+        secure:   process.env.NODE_ENV === 'production',
+        maxAge:   24 * 60 * 60 * 1000,
+        sameSite: 'lax',
+        httpOnly: true
     }
 }));
 
-// View engine setup
+// ── View engine ───────────────────────────────────────────────────────────────
 app.set('views', path.join(__dirname, 'views'));
 app.engine('html', require('ejs').renderFile);
 app.set('view engine', 'html');
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/webhook', webhookRoutes);
-app.use('/api/topup', topupRoutes);
+// ── API Routes ────────────────────────────────────────────────────────────────
+app.use('/api/auth',       authRoutes);
+app.use('/api/products',   productRoutes);
+app.use('/api/orders',     orderRoutes);
+app.use('/api/webhook',    webhookRoutes);
+app.use('/api/topup',      topupRoutes);
 app.use('/api/withdrawal', withdrawalRoutes);
-app.use('/api/support', supportRoutes);
-app.use('/api/affiliate', affiliateRoutes);
+app.use('/api/support',    supportRoutes);
+app.use('/api/affiliate',  affiliateRoutes);
 
-// Expose Telegram bot link for frontend
+// Expose Telegram bot link
 app.get('/api/bot-info', (req, res) => {
     const username = process.env.TELEGRAM_BOT_USERNAME || '';
     res.json({ bot_url: username ? `https://t.me/${username}` : null });
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-    res.json({
-        success: true,
-        message: 'Server is running',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime()
-    });
+// Health check — verifies DB connectivity
+app.get('/api/health', async (req, res) => {
+    try {
+        const db = require('./config/database');
+        await db.query('SELECT 1', []);
+        res.json({
+            success:   true,
+            message:   'Server is running',
+            database:  'connected',
+            timestamp: new Date().toISOString(),
+            uptime:    process.uptime()
+        });
+    } catch (dbErr) {
+        logger.error('Health check DB error: ' + dbErr.message);
+        res.status(503).json({
+            success:   false,
+            message:   'Database unavailable',
+            timestamp: new Date().toISOString()
+        });
+    }
 });
 
-// Page routes
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'index.html'));
+// ── Telegram webhook endpoint (used when TELEGRAM_USE_WEBHOOK=true) ───────────
+app.post('/api/telegram/webhook', express.json(), (req, res) => {
+    telegramBot.handleWebhookUpdate(req.body);
+    res.sendStatus(200);
 });
 
-app.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'login.html'));
-});
+// ── Page routes ───────────────────────────────────────────────────────────────
+app.get('/',              (req, res) => res.sendFile(path.join(__dirname, 'views', 'index.html')));
+app.get('/login',         (req, res) => res.sendFile(path.join(__dirname, 'views', 'login.html')));
+app.get('/register',      (req, res) => res.sendFile(path.join(__dirname, 'views', 'register.html')));
+app.get('/products',      (req, res) => res.sendFile(path.join(__dirname, 'views', 'products.html')));
+app.get('/orders',        (req, res) => res.sendFile(path.join(__dirname, 'views', 'orders.html')));
+app.get('/balance',       (req, res) => res.sendFile(path.join(__dirname, 'views', 'balance.html')));
+app.get('/affiliate',     (req, res) => res.sendFile(path.join(__dirname, 'views', 'affiliate.html')));
+app.get('/invoice',       (req, res) => res.sendFile(path.join(__dirname, 'views', 'invoice.html')));
+app.get('/reset-password',(req, res) => res.sendFile(path.join(__dirname, 'views', 'reset-password.html')));
 
-app.get('/register', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'register.html'));
-});
-
-app.get('/products', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'products.html'));
-});
-
-app.get('/orders', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'orders.html'));
-});
-
-app.get('/balance', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'balance.html'));
-});
-
-app.get('/admin', (req, res) => {
+// Admin page — server-side auth check (must be admin)
+app.get('/admin', authMiddleware.requireAdminPage, (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
 
-app.get('/affiliate', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'affiliate.html'));
-});
-
-app.get('/invoice', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'invoice.html'));
-});
-
-app.get('/reset-password', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'reset-password.html'));
-});
-
-// Error handler
+// ── Global error handler ──────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ 
-        success: false, 
-        message: 'Something went wrong!',
-        error: process.env.NODE_ENV === 'development' ? err.message : {}
+    logger.error(err.stack || err.message);
+    res.status(500).json({
+        success: false,
+        message: 'Terjadi kesalahan server.'
     });
 });
 
-// Start server
+// ── Start server ──────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    // Start Telegram support bot (non-blocking)
-    telegramBot.startPolling();
+app.listen(PORT, async () => {
+    const useWebhook = process.env.TELEGRAM_USE_WEBHOOK === 'true';
 
-    console.log('\n🚀 ========================================');
-    console.log('   Warung Rebahan Shop Server Started!');
-    console.log('========================================');
-    console.log(`📡 Server running on: http://localhost:${PORT}`);
-    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`📦 Database: ${process.env.DB_NAME}`);
-    console.log(`🔑 API Connected: ${process.env.WR_API_URL}`);
-    console.log('========================================\n');
-    const BASE_URL = process.env.APP_URL || `http://localhost:${PORT}`;
-    console.log('📝 Available routes:');
-    console.log(`   🏠 Home: ${BASE_URL}`);
-    console.log(`   🔐 Login: ${BASE_URL}/login`);
-    console.log(`   📝 Register: ${BASE_URL}/register`);
-    console.log(`   📦 Products: ${BASE_URL}/products`);
-    console.log(`   📋 Orders: ${BASE_URL}/orders`);
-    console.log(`   💰 Balance: ${BASE_URL}/balance`);
-    console.log(`   ❤️  Health: ${BASE_URL}/api/health`);
-    console.log('\n✨ Press Ctrl+C to stop the server\n');
+    if (useWebhook && process.env.APP_URL) {
+        await telegramBot.setWebhook(`${process.env.APP_URL}/api/telegram/webhook`);
+    } else {
+        telegramBot.startPolling();
+    }
+
+    logger.info(`\n🚀 ========================================`);
+    logger.info(`   Warung Rebahan Shop — PORT ${PORT}`);
+    logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`📦 Database: ${process.env.DB_NAME}`);
+    logger.info(`🤖 Telegram mode: ${useWebhook ? 'webhook' : 'polling'}`);
+    logger.info(`========================================`);
 });

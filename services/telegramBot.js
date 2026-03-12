@@ -1,11 +1,12 @@
 // services/telegramBot.js
 const axios = require('axios');
 const crypto = require('crypto');
+const logger = require('./logger');
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const BOT_TOKEN    = process.env.TELEGRAM_BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID;
-const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME || '';
-const API_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;
+const BOT_USERNAME  = process.env.TELEGRAM_BOT_USERNAME || '';
+const API_BASE      = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 // In-memory mapping: admin's forwarded message_id -> user's chat_id
 const messageMap = new Map();
@@ -32,7 +33,7 @@ async function sendMessage(chatId, text, options = {}) {
     });
     return res.data;
   } catch (err) {
-    console.error('[TelegramBot] sendMessage error:', err.response?.data || err.message);
+    logger.error('[TelegramBot] sendMessage error: ' + (err.response?.data?.description || err.message));
     return null;
   }
 }
@@ -197,22 +198,22 @@ async function handleUpdate(update) {
 // Long polling loop
 async function startPolling() {
   if (!BOT_TOKEN || !ADMIN_CHAT_ID) {
-    console.log('[TelegramBot] ⚠️  TELEGRAM_BOT_TOKEN atau TELEGRAM_ADMIN_CHAT_ID belum diset. Bot tidak aktif.');
+    logger.warn('[TelegramBot] TELEGRAM_BOT_TOKEN atau TELEGRAM_ADMIN_CHAT_ID belum diset. Bot tidak aktif.');
     return;
   }
 
-  // Delete any existing webhook so polling works without 409 conflict
+  // Clear any existing webhook so polling can start without 409
   try {
     await axios.post(`${API_BASE}/deleteWebhook`, { drop_pending_updates: false });
-    console.log('[TelegramBot] ✅ Webhook cleared, switching to polling mode.');
+    logger.info('[TelegramBot] Webhook cleared — switching to polling mode.');
   } catch (err) {
-    console.error('[TelegramBot] deleteWebhook warning:', err.message);
+    logger.warn('[TelegramBot] deleteWebhook warning: ' + err.message);
   }
 
   pollingActive = true;
   let offset = 0;
   let conflictRetries = 0;
-  console.log('[TelegramBot] 🤖 Bot support aktif dengan long polling...');
+  logger.info('[TelegramBot] 🤖 Bot support aktif dengan long polling...');
 
   while (pollingActive) {
     try {
@@ -221,7 +222,7 @@ async function startPolling() {
         timeout: 35000
       });
 
-      conflictRetries = 0; // reset on success
+      conflictRetries = 0;
 
       if (res.data && res.data.ok && res.data.result.length > 0) {
         for (const update of res.data.result) {
@@ -229,21 +230,19 @@ async function startPolling() {
           try {
             await handleUpdate(update);
           } catch (handleErr) {
-            console.error('[TelegramBot] handleUpdate error:', handleErr.message);
+            logger.error('[TelegramBot] handleUpdate error: ' + handleErr.message);
           }
         }
       }
     } catch (err) {
       if (err.code === 'ECONNABORTED') continue;
 
-      // 409 = another instance is polling this bot token
       if (err.response && err.response.status === 409) {
         conflictRetries++;
         const backoff = Math.min(conflictRetries * 10, 60) * 1000;
         if (conflictRetries <= 3) {
-          console.error(`[TelegramBot] 409 Conflict — instance lain sedang polling bot ini. Retry ${conflictRetries} in ${backoff / 1000}s...`);
+          logger.warn(`[TelegramBot] 409 Conflict — retry ${conflictRetries} in ${backoff / 1000}s`);
         }
-        // Try clearing webhook again on first conflict
         if (conflictRetries === 1) {
           try { await axios.post(`${API_BASE}/deleteWebhook`); } catch (_) {}
         }
@@ -251,10 +250,39 @@ async function startPolling() {
         continue;
       }
 
-      console.error('[TelegramBot] Polling error:', err.message);
+      logger.error('[TelegramBot] Polling error: ' + err.message);
       await sleep(5000);
     }
   }
+}
+
+// Set Telegram webhook (for production/webhook mode)
+async function setWebhook(url) {
+  if (!BOT_TOKEN) {
+    logger.warn('[TelegramBot] BOT_TOKEN not set — skipping webhook setup.');
+    return;
+  }
+  try {
+    const res = await axios.post(`${API_BASE}/setWebhook`, {
+      url,
+      allowed_updates: ['message']
+    });
+    if (res.data.ok) {
+      logger.info(`[TelegramBot] ✅ Webhook set to: ${url}`);
+    } else {
+      logger.warn('[TelegramBot] setWebhook response: ' + JSON.stringify(res.data));
+    }
+  } catch (err) {
+    logger.error('[TelegramBot] setWebhook error: ' + err.message);
+  }
+}
+
+// Handle a single update dispatched from the webhook POST route
+function handleWebhookUpdate(body) {
+  if (!body) return;
+  handleUpdate(body).catch(err => {
+    logger.error('[TelegramBot] handleWebhookUpdate error: ' + err.message);
+  });
 }
 
 function stopPolling() {
@@ -290,5 +318,7 @@ module.exports = {
   notifyPasswordResetSuccess,
   startPolling,
   stopPolling,
+  setWebhook,
+  handleWebhookUpdate,
   getBotUsername
 };

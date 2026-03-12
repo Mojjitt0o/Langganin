@@ -96,6 +96,56 @@
 <!-- Toast container -->
 <div class="toast-container" id="toastContainer"></div>
 
+<!-- ANNOUNCEMENT MODAL -->
+<div class="ann-modal" id="annModal" role="dialog" aria-modal="true" aria-labelledby="annTitle">
+  <div class="ann-box">
+    <div class="ann-header">
+      <div class="ann-header-text">
+        <span class="ann-badge">🔔 Pengumuman</span>
+        <h2 id="annTitle">Update & Info Terbaru</h2>
+        <p>Langganin v3.0 — 12 Maret 2026</p>
+      </div>
+      <button class="ann-close" id="annClose" aria-label="Tutup">✕</button>
+    </div>
+
+    <div class="ann-body">
+      <!-- Update Section -->
+      <div class="ann-section">
+        <div class="ann-section-title">🚀 Yang Baru di v3.0</div>
+        <ul class="ann-update-list">
+          <li><span class="ann-icon">🔐</span><span>Login lebih aman — autentikasi kini pakai <strong>httpOnly cookie</strong> (token tidak tersimpan di browser)</span></li>
+          <li><span class="ann-icon">💸</span><span>Sistem <strong>withdrawal</strong> diperbarui — proses tarik dana lebih cepat dan akurat</span></li>
+          <li><span class="ann-icon">🤝</span><span>Program <strong>Affiliate & Referral</strong> aktif — ajak teman, dapat komisi otomatis</span></li>
+          <li><span class="ann-icon">🤖</span><span><strong>Telegram bot</strong> support 24/7 — tanya apa saja langsung di bot kami</span></li>
+          <li><span class="ann-icon">⚡</span><span>Performa & keamanan sistem ditingkatkan — transaksi lebih aman dari sebelumnya</span></li>
+        </ul>
+      </div>
+
+      <!-- Open Ads Section -->
+      <div class="ann-section">
+        <div class="ann-section-title">📢 Buka Peluang Iklan</div>
+        <div class="ann-ads-box">
+          <div class="ann-ads-icon">📣</div>
+          <div class="ann-ads-text">
+            <strong>Mau Pasang Iklan di Sini?</strong>
+            <span>Jangkau ribuan pengguna aktif Langganin setiap harinya. Hubungi kami via Telegram untuk info harga & slot iklan.</span>
+          </div>
+          <a href="#" class="ann-ads-btn" id="annTelegramBtn" target="_blank" rel="noopener noreferrer">
+            ✈ Hubungi
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-footer">
+      <label class="ann-dont-show">
+        <input type="checkbox" id="annDontShow"> Jangan tampilkan hari ini
+      </label>
+      <button class="btn btn-primary btn-sm" id="annOkBtn">Oke, Mengerti!</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const token = localStorage.getItem('token');
 
@@ -154,6 +204,54 @@
     });
   });
   obs.observe(document.querySelector('.stats-section'));
+
+  // ── ANNOUNCEMENT MODAL ──────────────────────────────────────
+  (function () {
+    const STORAGE_KEY = 'ann_dismissed_date';
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const dismissed = localStorage.getItem(STORAGE_KEY);
+
+    if (dismissed === today) return; // already dismissed today
+
+    const modal   = document.getElementById('annModal');
+    const closeBtn = document.getElementById('annClose');
+    const okBtn   = document.getElementById('annOkBtn');
+    const checkbox = document.getElementById('annDontShow');
+    const tgBtn   = document.getElementById('annTelegramBtn');
+
+    // Fetch bot username for ads button
+    fetch('/api/support/bot-info', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => {
+        if (d.botUsername) {
+          tgBtn.href = 'https://t.me/' + d.botUsername;
+        }
+      })
+      .catch(() => {});
+
+    function closeModal() {
+      if (checkbox.checked) {
+        localStorage.setItem(STORAGE_KEY, today);
+      }
+      modal.classList.remove('active');
+    }
+
+    // Show after short delay so page loads first
+    setTimeout(() => modal.classList.add('active'), 600);
+
+    closeBtn.addEventListener('click', closeModal);
+    okBtn.addEventListener('click', closeModal);
+
+    // Close on backdrop click
+    modal.addEventListener('click', e => {
+      if (e.target === modal) closeModal();
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && modal.classList.contains('active')) closeModal();
+    });
+  })();
 </script>
 <script src="/js/translations.js"></script>
 <script src="/js/theme-lang.js"></script>

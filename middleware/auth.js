@@ -4,36 +4,30 @@ const User = require('../models/User');
 
 const authMiddleware = {
     verifyToken(req, res, next) {
-        const token = req.headers['authorization']?.split(' ')[1] || 
-                     req.query.token || 
-                     req.body.token;
+        // Priority: httpOnly cookie > Authorization header > query/body token (legacy)
+        const token =
+            req.cookies?.auth_token ||
+            req.headers['authorization']?.split(' ')[1] ||
+            req.query.token ||
+            req.body?.token;
 
         if (!token) {
-            return res.status(403).json({
-                success: false,
-                message: 'No token provided'
-            });
+            return res.status(403).json({ success: false, message: 'No token provided' });
         }
 
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            req.userId = decoded.id;
+            req.userId    = decoded.id;
             req.userEmail = decoded.email;
             next();
-        } catch (error) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid or expired token'
-            });
+        } catch {
+            return res.status(401).json({ success: false, message: 'Invalid or expired token' });
         }
     },
 
     checkSession(req, res, next) {
         if (!req.session.userId) {
-            return res.status(401).json({
-                success: false,
-                message: 'Not authenticated'
-            });
+            return res.status(401).json({ success: false, message: 'Not authenticated' });
         }
         req.userId = req.session.userId;
         next();
@@ -43,17 +37,25 @@ const authMiddleware = {
         try {
             const user = await User.findById(req.userId);
             if (!user || !user.is_admin) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Admin access required'
-                });
+                return res.status(403).json({ success: false, message: 'Admin access required' });
             }
             next();
-        } catch (error) {
-            return res.status(500).json({
-                success: false,
-                message: 'Server error'
-            });
+        } catch {
+            return res.status(500).json({ success: false, message: 'Server error' });
+        }
+    },
+
+    // Server-side guard for /admin page route
+    async requireAdminPage(req, res, next) {
+        const token = req.cookies?.auth_token;
+        if (!token) return res.redirect('/login');
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const user = await User.findById(decoded.id);
+            if (!user || !user.is_admin) return res.status(403).send('Forbidden');
+            next();
+        } catch {
+            return res.redirect('/login');
         }
     }
 };

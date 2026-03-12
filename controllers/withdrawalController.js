@@ -1,5 +1,6 @@
 // controllers/withdrawalController.js
 const db = require('../config/database');
+const logger = require('../services/logger');
 require('dotenv').config();
 
 class WithdrawalController {
@@ -66,11 +67,11 @@ class WithdrawalController {
                 [userId, amount, adminFee, netAmount, bank_name, account_number, account_name, notes || null, 'pending']
             );
 
-            // Record transaction
+            // Record transaction — type 'withdrawal' (saldo berkurang)
             await db.query(
                 `INSERT INTO transactions (user_id, type, amount, description)
                  VALUES ($1, $2, $3, $4)`,
-                [userId, 'topup', -amount, `Penarikan dana (ID: ${result[0].id})`]
+                [userId, 'withdrawal', -amount, `Penarikan dana (ID: ${result[0].id})`]
             );
 
             res.json({
@@ -85,12 +86,8 @@ class WithdrawalController {
             });
 
         } catch (error) {
-            console.error('Create withdrawal error:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Gagal membuat permintaan penarikan',
-                error: error.message
-            });
+            logger.error('Create withdrawal error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal membuat permintaan penarikan' });
         }
     }
 
@@ -123,47 +120,48 @@ class WithdrawalController {
         }
     }
 
-    // Admin: Get all withdrawal requests
+    // Admin: Get all withdrawal requests (with pagination)
     static async getAllWithdrawals(req, res) {
         try {
             const { status } = req.query;
+            const page  = Math.max(1, parseInt(req.query.page)  || 1);
+            const limit = Math.min(100, parseInt(req.query.limit) || 50);
+            const offset = (page - 1) * limit;
 
-            let query = `
+            let baseQuery = `
                 SELECT w.*, u.username, u.email, u.whatsapp,
                        approver.username as approved_by_username
                 FROM withdrawals w
-                LEFT JOIN users u ON w.user_id = u.id
+                LEFT JOIN users u        ON w.user_id     = u.id
                 LEFT JOIN users approver ON w.approved_by = approver.id
             `;
-
             const params = [];
             if (status) {
-                query += ` WHERE w.status = $1`;
+                baseQuery += ` WHERE w.status = $1`;
                 params.push(status);
             }
 
-            query += ` ORDER BY 
-                CASE w.status 
-                    WHEN 'pending' THEN 1 
-                    WHEN 'approved' THEN 2 
-                    ELSE 3 
-                END,
-                w.created_at DESC
-                LIMIT 200`;
+            // Count total for pagination meta
+            const countQuery = `SELECT COUNT(*) FROM withdrawals` + (status ? ` WHERE status = $1` : '');
+            const [countRows] = await db.query(countQuery, status ? [status] : []);
+            const total = parseInt(countRows[0].count);
 
-            const [withdrawals] = await db.query(query, params);
+            baseQuery += ` ORDER BY
+                CASE w.status WHEN 'pending' THEN 1 WHEN 'approved' THEN 2 ELSE 3 END,
+                w.created_at DESC
+                LIMIT ${limit} OFFSET ${offset}`;
+
+            const [withdrawals] = await db.query(baseQuery, params);
 
             res.json({
                 success: true,
-                data: withdrawals
+                data: withdrawals,
+                pagination: { page, limit, total, pages: Math.ceil(total / limit) }
             });
 
         } catch (error) {
-            console.error('Get all withdrawals error:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Gagal mengambil data penarikan'
-            });
+            logger.error('Get all withdrawals error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal mengambil data penarikan' });
         }
     }
 
@@ -209,11 +207,8 @@ class WithdrawalController {
             });
 
         } catch (error) {
-            console.error('Approve withdrawal error:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Gagal menyetujui penarikan'
-            });
+            logger.error('Approve withdrawal error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal menyetujui penarikan' });
         }
     }
 
@@ -267,24 +262,18 @@ class WithdrawalController {
                 ['rejected', adminId, rejected_reason, id]
             );
 
-            // Record refund transaction
+            // Record refund transaction as 'topup' (balance returned)
             await db.query(
                 `INSERT INTO transactions (user_id, type, amount, description)
                  VALUES ($1, $2, $3, $4)`,
                 [withdrawal.user_id, 'topup', withdrawal.amount, `Pengembalian dana penarikan ditolak (ID: ${id})`]
             );
 
-            res.json({
-                success: true,
-                message: 'Permintaan penarikan ditolak. Saldo user dikembalikan.'
-            });
+            res.json({ success: true, message: 'Permintaan penarikan ditolak. Saldo user dikembalikan.' });
 
         } catch (error) {
-            console.error('Reject withdrawal error:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Gagal menolak penarikan'
-            });
+            logger.error('Reject withdrawal error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal menolak penarikan' });
         }
     }
 
@@ -329,11 +318,8 @@ class WithdrawalController {
             });
 
         } catch (error) {
-            console.error('Complete withdrawal error:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Gagal menyelesaikan penarikan'
-            });
+            logger.error('Complete withdrawal error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal menyelesaikan penarikan' });
         }
     }
 
@@ -358,11 +344,8 @@ class WithdrawalController {
             });
 
         } catch (error) {
-            console.error('Get withdrawal stats error:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Gagal mengambil statistik penarikan'
-            });
+            logger.error('Get withdrawal stats error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal mengambil statistik penarikan' });
         }
     }
 }

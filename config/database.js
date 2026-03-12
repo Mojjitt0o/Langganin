@@ -26,4 +26,5 @@ const query = async (text, params) => {
     return [result.rows, result.fields];
 };
 
+// Expose pool so models can use client-level transactions (BEGIN/COMMIT/ROLLBACK)
 module.exports = { query, pool };

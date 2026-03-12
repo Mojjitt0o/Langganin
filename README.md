@@ -1,17 +1,21 @@
-# Langganin 🛍️
+# Langganin 🚀
 
-Website integrasi dengan Warung Rebahan API untuk penjualan produk digital dengan sistem markup otomatis dan tracking profit.
+Platform reseller produk digital premium (Netflix, Spotify, Canva Pro, YouTube Premium, dll.) dengan integrasi Warung Rebahan API.
+
+**v3.0** — Security & Refactor Update
 
 ## ✨ Fitur
 
-- 🔐 Sistem Authentication (Register, Login, Logout)
-- 📦 Sinkronisasi Produk otomatis dari Warung Rebahan API
-- 💰 Sistem Markup harga otomatis (persentase + fixed)
-- 🛒 Order Management
-- 💵 Balance & Profit Tracking
-- 📊 Dashboard statistik
-- 🎨 UI Modern dan Responsif
-- ⚡ Real-time webhook untuk update order
+- 🔐 Authentication (Register, Login, Logout) — JWT via httpOnly cookie
+- 📦 Sinkronisasi produk dari Warung Rebahan API
+- 💳 Top Up saldo via Midtrans (QRIS, bank transfer, e-wallet, Alfamart)
+- 🛒 Order management dengan koneksi langsung ke supplier WR
+- 💰 Sistem withdrawal dengan flow approve/reject admin
+- 🤝 Sistem affiliate & referral (komisi + diskon buyer)
+- 📊 Admin dashboard: statistik, profit, manajemen user, produk, order
+- 🤖 Telegram bot support (polling & webhook mode)
+- 🌙 Dark/light theme + bilingual (ID/EN)
+- 📱 Fully responsive UI
 
 ## 🚀 Instalasi
 
@@ -19,7 +23,7 @@ Website integrasi dengan Warung Rebahan API untuk penjualan produk digital denga
 
 ```bash
 git clone <repository-url>
-cd warung-rebahan-shop
+cd Langganin
 ```
 
 ### 2. Install Dependencies
@@ -30,237 +34,239 @@ npm install
 
 ### 3. Setup Database
 
-Buat database PostgreSQL dan import schema:
-
 ```bash
-psql -U postgres -c "CREATE DATABASE warung_rebahan_shop;"
-psql -U postgres -d warung_rebahan_shop -f database/init.sql
+psql -U postgres -c "CREATE DATABASE Langganin;"
+psql -U postgres -d Langganin -f database/init.sql
 ```
 
-Atau jalankan manual di psql:
-
-```sql
-CREATE DATABASE warung_rebahan_shop;
+Kemudian jalankan seluruh migration:
+```bash
+node scripts/migrate.js
+node scripts/migrate-withdrawals.js
+node scripts/migrate-affiliate.js
+node scripts/migrate-password-reset.js
+node scripts/migrate-snap-token.js
+node scripts/migrate-referral-discount.js
 ```
-
-Kemudian import file `database/init.sql`
 
 ### 4. Konfigurasi Environment
 
-Edit file `.env` dan sesuaikan dengan konfigurasi Anda:
+Buat file `.env`:
 
 ```env
-# Server Configuration
+# Server
 PORT=3000
 NODE_ENV=development
+APP_URL=http://localhost:3000
 
-# Database Configuration (PostgreSQL)
+# Database (PostgreSQL)
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=postgres
 DB_PASSWORD=your_postgres_password
-DB_NAME=warung_rebahan_shop
+DB_NAME=Langganin
+DB_SSL=false
 
 # Warung Rebahan API
 WR_API_URL=https://warungrebahan.com/api/v1
-WR_API_KEY=your_api_key_here
+WR_API_KEY=your_wr_api_key
 
-# JWT Secret
-JWT_SECRET=your_jwt_secret_key_here
-SESSION_SECRET=your_session_secret_here
+# JWT & Session
+JWT_SECRET=your_very_long_random_jwt_secret
+SESSION_SECRET=your_very_long_random_session_secret
 
-# Markup Configuration
-MARKUP_PERCENTAGE=20
-FIXED_MARKUP=5000
+# Midtrans
+MIDTRANS_SERVER_KEY=your_midtrans_server_key
+MIDTRANS_CLIENT_KEY=your_midtrans_client_key
+MIDTRANS_IS_PRODUCTION=false
+
+# Withdrawal fee (persen)
+WITHDRAWAL_ADMIN_FEE=10
+
+# Telegram Bot
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_ADMIN_CHAT_ID=your_admin_chat_id
+TELEGRAM_BOT_USERNAME=your_bot_username
+
+# Telegram webhook mode (pakai 'true' di production Railway)
+TELEGRAM_USE_WEBHOOK=false
+
+# Log level (debug | info | warn | error)
+LOG_LEVEL=info
 ```
 
 ### 5. Jalankan Aplikasi
 
-**Development Mode:**
 ```bash
+# Development (auto-reload)
 npm run dev
-```
 
-**Production Mode:**
-```bash
+# Production
 npm start
 ```
-
-Aplikasi akan berjalan di `http://localhost:3000`
 
 ## 📂 Struktur Folder
 
 ```
 warung-rebahan-shop/
 ├── config/
-│   └── database.js          # Konfigurasi koneksi database
+│   └── database.js              # Konfigurasi koneksi PostgreSQL
 ├── controllers/
-│   ├── authController.js    # Handler authentication
-│   ├── orderController.js   # Handler order
-│   ├── productController.js # Handler produk
-│   └── webhookController.js # Handler webhook dari API
+│   ├── authController.js        # Register, Login, Logout, Password Reset
+│   ├── orderController.js       # Order management
+│   ├── productController.js     # Sinkronisasi produk
+│   ├── topupController.js       # Top Up via Midtrans
+│   ├── withdrawalController.js  # Penarikan dana
+│   ├── affiliateController.js   # Sistem affiliate
+│   ├── supportController.js     # Support ticket
+│   └── webhookController.js     # Webhook dari WR API
 ├── database/
-│   └── init.sql            # Schema database
+│   ├── init.sql                 # Base schema
+│   └── migrations/              # Migration SQL files
 ├── middleware/
-│   └── auth.js             # Middleware authentication
+│   └── auth.js                  # JWT (cookie) + session + admin guard
 ├── models/
-│   ├── Order.js            # Model order
-│   ├── Product.js          # Model produk
-│   ├── Profit.js           # Model profit
-│   └── User.js             # Model user
+│   ├── Order.js                 # Order model (DB transaction safe)
+│   ├── Product.js               # Product & variant model
+│   ├── Profit.js                # Profit model
+│   ├── Affiliate.js             # Affiliate model
+│   └── User.js                  # User model
 ├── public/
-│   ├── css/
-│   │   └── style.css       # Styling modern
+│   ├── css/style.css            # Global stylesheet
 │   └── js/
-│       └── main.js         # JavaScript frontend
-├── routes/
-│   ├── authRoutes.js       # Routes authentication
-│   ├── orderRoutes.js      # Routes order
-│   ├── productRoutes.js    # Routes produk
-│   └── webhookRoutes.js    # Routes webhook
-├── views/
-│   ├── index.html          # Landing page
-│   ├── login.html          # Halaman login
-│   ├── register.html       # Halaman register
-│   ├── products.html       # Halaman produk
-│   ├── orders.html         # Halaman pesanan
-│   └── balance.html        # Halaman saldo & profit
-├── .env                    # Environment variables
-├── package.json            # Dependencies
-└── server.js              # Entry point aplikasi
+│       ├── main.js              # Auth, Order, Balance utils (httpOnly cookie)
+│       ├── theme-lang.js        # Dark/light theme + i18n
+│       ├── translations.js      # ID/EN strings
+│       └── support-widget.js    # Floating support widget
+├── routes/                      # Express route handlers
+├── scripts/                     # Migration scripts
+├── services/
+│   ├── logger.js                # Winston structured logger
+│   └── telegramBot.js           # Telegram bot (polling & webhook)
+├── views/                       # HTML views
+├── .env                         # Environment variables
+├── package.json
+└── server.js                    # Entry point
 ```
-
-## 🎯 Cara Penggunaan
-
-### 1. Register Akun
-
-- Buka `http://localhost:3000/register`
-- Isi form registrasi
-- Klik "Daftar"
-
-### 2. Login
-
-- Buka `http://localhost:3000/login`
-- Masukkan email dan password
-- Klik "Login"
-
-### 3. Lihat Produk
-
-- Setelah login, buka halaman Produk
-- Sistem akan otomatis sinkronisasi produk dari API
-- Lihat berbagai produk dengan harga dan profit
-
-### 4. Buat Pesanan
-
-- Pilih produk yang ingin dibeli
-- Klik "Beli Sekarang"
-- Isi jumlah dan kode voucher (opsional)
-- Konfirmasi pesanan
-
-### 5. Cek Pesanan
-
-- Buka halaman "Pesanan"
-- Lihat riwayat semua pesanan
-- Filter berdasarkan status
-
-### 6. Cek Profit
-
-- Buka halaman "Saldo & Profit"
-- Lihat total keuntungan
-- Lihat riwayat profit per transaksi
 
 ## 🔧 API Endpoints
 
 ### Authentication
-- `POST /api/auth/register` - Registrasi user baru
-- `POST /api/auth/login` - Login user
-- `POST /api/auth/logout` - Logout user
-- `GET /api/auth/profile` - Ambil profil user
-- `POST /api/auth/topup` - Top up saldo
-- `GET /api/auth/profit` - Ambil summary profit
+| Method | Endpoint | Auth | Deskripsi |
+|--------|----------|------|-----------|
+| POST | `/api/auth/register` | — | Daftar akun |
+| POST | `/api/auth/login` | — | Login (5 req/15 min) |
+| POST | `/api/auth/logout` | — | Logout + clear cookie |
+| GET  | `/api/auth/profile` | ✅ | Profil user |
+| PUT  | `/api/auth/profile` | ✅ | Update nomor WA |
+| GET  | `/api/auth/profit` | ✅ | Summary profit |
+| POST | `/api/auth/forgot-password` | — | Request reset password |
+| POST | `/api/auth/reset-password` | — | Reset dengan token |
 
 ### Products
-- `GET /api/products` - Ambil semua produk (auto sync dari API)
-- `GET /api/products/:id/variants` - Ambil varian produk
+| Method | Endpoint | Auth | Deskripsi |
+|--------|----------|------|-----------|
+| GET | `/api/products` | — | Semua produk + variant |
+| GET | `/api/products/:id/variants` | — | Variant produk |
 
 ### Orders
-- `POST /api/orders/create` - Buat pesanan baru
-- `GET /api/orders/history` - Ambil riwayat pesanan
-- `GET /api/orders/balance` - Ambil saldo
+| Method | Endpoint | Auth | Deskripsi |
+|--------|----------|------|-----------|
+| POST | `/api/orders/create` | ✅ | Buat order |
+| GET  | `/api/orders/history` | ✅ | Riwayat order user |
+| GET  | `/api/orders/profit-summary?page=1&limit=50` | Admin | Dashboard profit |
+| GET  | `/api/orders/:id/detail` | Admin | Detail order |
+| PATCH | `/api/orders/:id/status` | Admin | Update status |
+| PATCH | `/api/orders/:id/complete` | Admin | Complete + kirim account_details |
 
-### Webhook
-- `POST /api/webhook` - Endpoint untuk menerima webhook dari Warung Rebahan API
+### Top Up
+| Method | Endpoint | Auth | Deskripsi |
+|--------|----------|------|-----------|
+| POST | `/api/topup/create` | ✅ | Buat transaksi Midtrans |
+| POST | `/api/topup/notification` | — | Midtrans webhook (verified) |
+| GET  | `/api/topup/history` | ✅ | Riwayat topup |
+| GET  | `/api/topup/invoice/:orderId` | ✅ | Detail invoice |
+| DELETE | `/api/topup/cancel/:orderId` | ✅ | Cancel pending |
 
-## 💡 Tips
+### Withdrawal
+| Method | Endpoint | Auth | Deskripsi |
+|--------|----------|------|-----------|
+| POST | `/api/withdrawal/create` | ✅ | Request tarik dana |
+| GET  | `/api/withdrawal/history` | ✅ | Riwayat withdrawal |
+| GET  | `/api/withdrawal/admin/all?page=1&limit=50` | Admin | Semua withdrawal |
+| POST | `/api/withdrawal/admin/:id/approve` | Admin | Approve |
+| POST | `/api/withdrawal/admin/:id/reject` | Admin | Reject + refund saldo |
+| POST | `/api/withdrawal/admin/:id/complete` | Admin | Mark selesai |
 
-1. **Markup Configuration**: Sesuaikan `MARKUP_PERCENTAGE` dan `FIXED_MARKUP` di `.env` untuk mengatur keuntungan Anda
+### Lainnya
+| Endpoint | Deskripsi |
+|----------|-----------|
+| `GET /api/health` | Health check (verifikasi DB) |
+| `POST /api/webhook` | WR API webhook (HMAC verified) |
+| `POST /api/telegram/webhook` | Telegram webhook endpoint |
 
-2. **Webhook Setup**: Daftarkan URL webhook Anda di dashboard Warung Rebahan:
-   ```
-   https://yourdomain.com/api/webhook
-   ```
+## 🔒 Security
 
-3. **Security**: Pastikan untuk mengganti `JWT_SECRET` dan `SESSION_SECRET` dengan string acak yang aman
+| Fitur | Implementasi |
+|-------|-------------|
+| Password | bcryptjs (cost factor 10) |
+| JWT | httpOnly cookie `Secure; SameSite=lax` |
+| Rate limiting | 100 req/15 min umum; 5 req/15 min khusus login |
+| Midtrans | SHA512 signature verification |
+| WR Webhook | HMAC-SHA256 signature verification |
+| SQL Injection | Parameterized queries (prepared statements) |
+| CORS | Dibatasi ke domain `APP_URL` |
+| Admin page | Server-side JWT + DB admin check |
+| DB Integrity | Order creation dalam `BEGIN/COMMIT` transaction |
+| Error leaking | Internal errors tidak dikirim ke client |
+| Session | httpOnly cookie, `SESSION_SECRET` wajib |
 
-4. **Database Backup**: Backup database secara berkala untuk menjaga data
+## 🤖 Telegram Bot — Webhook Mode (Production)
 
-## 🎨 Fitur UI
+Di Railway atau hosting dengan domain publik, lebih baik pakai webhook:
 
-- 🌈 Design modern dengan animasi smooth
-- 📱 Fully responsive (mobile, tablet, desktop)
-- 🎯 User-friendly interface
-- ⚡ Loading states dan error handling
-- 🎭 Modal dialogs untuk konfirmasi
-- 🏷️ Badge status yang informatif
+1. Set `TELEGRAM_USE_WEBHOOK=true` di `.env`
+2. Set `APP_URL=https://your-domain.up.railway.app`
+3. Webhook akan diset otomatis di startup: `{APP_URL}/api/telegram/webhook`
+4. Untuk kembali ke polling, set `TELEGRAM_USE_WEBHOOK=false`
 
-## 🔒 Security Features
+## 📊 Logging
 
-- Password hashing dengan bcrypt
-- JWT untuk authentication
-- Session management
-- Rate limiting untuk API
-- SQL injection protection dengan prepared statements
-- CORS configuration
+Winston logger aktif di semua controller dan service.
+Format: `YYYY-MM-DD HH:mm:ss [level]: message`
 
-## 📝 Notes
-
-- Pastikan PostgreSQL server berjalan sebelum start aplikasi
-- API Key Warung Rebahan harus valid
-- Default port adalah 3000, bisa diubah di `.env`
-- Untuk production, set `NODE_ENV=production`
+Level: `debug` (development) | `info` (production)
 
 ## 🐛 Troubleshooting
 
 ### Database Connection Error
 - Pastikan PostgreSQL berjalan
 - Cek kredensial di `.env`
-- Pastikan database sudah dibuat
+- Cek dengan: `GET /api/health`
 
-### API Error
-- Cek API Key di `.env`
-- Pastikan koneksi internet stabil
-- Cek saldo API di dashboard Warung Rebahan
+### Login Cookie Tidak Berfungsi
+- Pastikan `credentials: 'include'` ada di semua fetch call frontend
+- Di production, `APP_URL` harus HTTPS agar cookie `Secure` berfungsi
+- Pastikan CORS `credentials: true` dan `allowedOrigins` cocok dengan domain
+
+### Telegram 409 Conflict
+- Hanya boleh satu instance yang polling
+- Di production, gunakan webhook mode (`TELEGRAM_USE_WEBHOOK=true`)
 
 ### Port Already in Use
-- Ganti PORT di `.env`
-- Atau kill process yang menggunakan port:
-  ```bash
-  # Windows
-  netstat -ano | findstr :3000
-  taskkill /PID <PID> /F
-  ```
+```bash
+# Windows
+netstat -ano | findstr :3000
+taskkill /PID <PID> /F
+```
 
 ## 📄 License
 
 MIT License
 
-## 🤝 Contributing
-
-Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
-
 ## 👨‍💻 Author
 
-Warung Rebahan Shop
+Langganin — Semua Langganan Premium, Harga Terjangkau 🚀
 
 ---
 

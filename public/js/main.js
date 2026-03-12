@@ -46,38 +46,49 @@ const showAlert = (message, type = 'info') => {
 };
 
 // Authentication Functions
+// Token is now stored in an httpOnly cookie (set by server).
+// Only non-sensitive user profile data is cached in localStorage.
 const Auth = {
     isAuthenticated: () => {
-        return !!localStorage.getItem('token');
+        return !!localStorage.getItem('user_data');
     },
 
-    getToken: () => {
-        return localStorage.getItem('token');
+    // Deprecated — kept as no-op for compatibility; server manages cookie
+    getToken: () => null,
+    setToken: () => {},
+    removeToken: () => { localStorage.removeItem('user_data'); },
+
+    getUserData: () => {
+        try {
+            const raw = localStorage.getItem('user_data');
+            return raw ? JSON.parse(raw) : null;
+        } catch { return null; }
     },
 
-    setToken: (token) => {
-        localStorage.setItem('token', token);
+    setUserData: (user) => {
+        // Store only non-sensitive profile info — never the JWT
+        const safe = { id: user.id, username: user.username, email: user.email, balance: user.balance, is_admin: user.is_admin };
+        localStorage.setItem('user_data', JSON.stringify(safe));
     },
 
-    removeToken: () => {
-        localStorage.removeItem('token');
+    clearUserData: () => {
+        localStorage.removeItem('user_data');
     },
 
     getUser: async () => {
         if (!Auth.isAuthenticated()) return null;
-        
         try {
             const response = await fetch(`${API_BASE_URL}/auth/profile`, {
-                headers: {
-                    'Authorization': `Bearer ${Auth.getToken()}`
-                }
+                credentials: 'include'
             });
-            
             const data = await response.json();
             if (data.success) {
+                Auth.setUserData(data.data);
                 currentUser = data.data;
                 return data.data;
             }
+            // Token may have expired — clean up
+            Auth.clearUserData();
             return null;
         } catch (error) {
             console.error('Error fetching user:', error);
@@ -89,20 +100,16 @@ const Auth = {
         try {
             const response = await fetch(`${API_BASE_URL}/auth/login`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ email, password })
             });
-            
             const data = await response.json();
-            
             if (data.success) {
-                Auth.setToken(data.data.token);
+                Auth.setUserData(data.data.user);
                 currentUser = data.data.user;
                 showAlert('Login berhasil!', 'success');
             }
-            
             return data;
         } catch (error) {
             console.error('Login error:', error);
@@ -115,18 +122,14 @@ const Auth = {
         try {
             const response = await fetch(`${API_BASE_URL}/auth/register`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify(userData)
             });
-            
             const data = await response.json();
-            
             if (data.success) {
                 showAlert('Registrasi berhasil! Silakan login.', 'success');
             }
-            
             return data;
         } catch (error) {
             console.error('Registration error:', error);
@@ -135,16 +138,21 @@ const Auth = {
         }
     },
 
-    logout: () => {
-        Auth.removeToken();
+    logout: async () => {
+        try {
+            await fetch(`${API_BASE_URL}/auth/logout`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+        } catch (_) {}
+        Auth.clearUserData();
         currentUser = null;
         showAlert('Logout berhasil', 'success');
         window.location.href = '/login';
     },
 
     checkAuth: () => {
-        const token = Auth.getToken();
-        if (!token) {
+        if (!Auth.isAuthenticated()) {
             window.location.href = '/login';
             return false;
         }
@@ -156,21 +164,26 @@ const Auth = {
         if (!navbarMenu) return;
 
         const isAuth = Auth.isAuthenticated();
-        const loginBtn = document.getElementById('loginBtn');
-        const logoutBtn = document.getElementById('logoutBtn');
+        const loginBtn      = document.getElementById('loginBtn');
+        const logoutBtn     = document.getElementById('logoutBtn');
         const balanceDisplay = document.getElementById('balanceDisplay');
 
         if (isAuth) {
-            if (loginBtn) loginBtn.style.display = 'none';
+            if (loginBtn)  loginBtn.style.display  = 'none';
             if (logoutBtn) logoutBtn.style.display = 'inline-block';
-            
-            // Fetch user data
+
+            // Use cached data first, then refresh in background
+            const cached = Auth.getUserData();
+            if (cached && balanceDisplay) {
+                balanceDisplay.textContent = formatRupiah(cached.balance);
+            }
+            // Refresh user data from server
             const user = await Auth.getUser();
             if (user && balanceDisplay) {
                 balanceDisplay.textContent = formatRupiah(user.balance);
             }
         } else {
-            if (loginBtn) loginBtn.style.display = 'inline-block';
+            if (loginBtn)  loginBtn.style.display  = 'inline-block';
             if (logoutBtn) logoutBtn.style.display = 'none';
             if (balanceDisplay) balanceDisplay.style.display = 'none';
         }
@@ -181,16 +194,8 @@ const Auth = {
 const Product = {
     getAll: async () => {
         try {
-            const headers = {};
-            const token = Auth.getToken();
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-            
-            const response = await fetch(`${API_BASE_URL}/products`, { headers });
-            
-            const data = await response.json();
-            return data;
+            const response = await fetch(`${API_BASE_URL}/products`, { credentials: 'include' });
+            return await response.json();
         } catch (error) {
             console.error('Error fetching products:', error);
             showAlert('Gagal mengambil data produk', 'danger');
@@ -200,16 +205,8 @@ const Product = {
 
     getVariants: async (productId) => {
         try {
-            const headers = {};
-            const token = Auth.getToken();
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-            
-            const response = await fetch(`${API_BASE_URL}/products/${productId}/variants`, { headers });
-            
-            const data = await response.json();
-            return data;
+            const response = await fetch(`${API_BASE_URL}/products/${productId}/variants`, { credentials: 'include' });
+            return await response.json();
         } catch (error) {
             console.error('Error fetching variants:', error);
             throw error;
@@ -273,7 +270,7 @@ const Product = {
         const discountPercent = Math.round(((fakeNormalPrice - variant.our_price) / fakeNormalPrice) * 100);
         
         // Tombol beli hanya muncul jika sudah login
-        const buyButton = isLoggedIn 
+        const buyButton = isLoggedIn
             ? `<button class="btn-buy" onclick="Order.openModal('${variant.id}', '${productName} - ${variant.name}', ${variant.our_price}, ${variant.original_price})">
                    Beli Sekarang
                </button>`
@@ -310,19 +307,12 @@ const Order = {
         try {
             const response = await fetch(`${API_BASE_URL}/orders/create`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${Auth.getToken()}`
-                },
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify(orderData)
             });
-            
             const data = await response.json();
-            
-            if (data.success) {
-                showAlert('Pesanan berhasil dibuat!', 'success');
-            }
-            
+            if (data.success) showAlert('Pesanan berhasil dibuat!', 'success');
             return data;
         } catch (error) {
             console.error('Error creating order:', error);
@@ -333,14 +323,8 @@ const Order = {
 
     getHistory: async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/orders/history`, {
-                headers: {
-                    'Authorization': `Bearer ${Auth.getToken()}`
-                }
-            });
-            
-            const data = await response.json();
-            return data;
+            const response = await fetch(`${API_BASE_URL}/orders/history`, { credentials: 'include' });
+            return await response.json();
         } catch (error) {
             console.error('Error fetching order history:', error);
             showAlert('Gagal mengambil riwayat pesanan', 'danger');
@@ -521,14 +505,8 @@ const Order = {
 const Balance = {
     getUserBalance: async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/orders/balance`, {
-                headers: {
-                    'Authorization': `Bearer ${Auth.getToken()}`
-                }
-            });
-            
-            const data = await response.json();
-            return data;
+            const response = await fetch(`${API_BASE_URL}/orders/balance`, { credentials: 'include' });
+            return await response.json();
         } catch (error) {
             console.error('Error fetching balance:', error);
             throw error;
@@ -547,42 +525,10 @@ const Balance = {
         }
     },
 
-    topup: async (amount) => {
-        try {
-            const response = await fetch(`${API_BASE_URL}/auth/topup`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${Auth.getToken()}`
-                },
-                body: JSON.stringify({ amount })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                showAlert('Top up berhasil!', 'success');
-                await Balance.update();
-            }
-            
-            return data;
-        } catch (error) {
-            console.error('Error during topup:', error);
-            showAlert('Gagal melakukan top up', 'danger');
-            throw error;
-        }
-    },
-
     getProfit: async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/auth/profit`, {
-                headers: {
-                    'Authorization': `Bearer ${Auth.getToken()}`
-                }
-            });
-            
-            const data = await response.json();
-            return data;
+            const response = await fetch(`${API_BASE_URL}/auth/profit`, { credentials: 'include' });
+            return await response.json();
         } catch (error) {
             console.error('Error fetching profit:', error);
             throw error;
@@ -613,7 +559,7 @@ const App = {
         // Setup logout button
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) {
-            logoutBtn.addEventListener('click', Auth.logout);
+            logoutBtn.addEventListener('click', () => Auth.logout());
         }
     }
 };
