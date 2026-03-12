@@ -101,7 +101,7 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <script>
-  const token = localStorage.getItem('token');
+  const userData = localStorage.getItem('user_data');
   // Allow access without login - user can view products but can't buy
 
   let allProducts    = [];
@@ -111,7 +111,7 @@
 
   // ── Init ──
   document.addEventListener('DOMContentLoaded', () => {
-    if (token) {
+    if (userData) {
       // Show logged-in nav items
       document.getElementById('navOrders').style.display = '';
       document.getElementById('navBalanceLink').style.display = '';
@@ -154,9 +154,9 @@
   });
 
   async function loadProfile() {
-    if (!token) return; // Skip if not logged in
+    if (!userData) return; // Skip if not logged in
     try {
-      const r = await fetch('/api/auth/profile', { headers: { Authorization: 'Bearer ' + token } });
+      const r = await fetch('/api/auth/profile', { credentials: 'include' });
       const d = await r.json();
       if (d.success) {
         currentUser = d.data;
@@ -174,10 +174,7 @@
   async function loadProducts() {
     show('loadWrap'); hide('productsGrid'); hide('errorMsg'); hide('emptyState');
     try {
-      const headers = {};
-      if (token) headers.Authorization = 'Bearer ' + token;
-      
-      const r = await fetch('/api/products', { headers });
+      const r = await fetch('/api/products', { credentials: 'include' });
       const d = await r.json();
       if (d.success) {
         allProducts = d.data;
@@ -194,7 +191,7 @@
     const btn = document.getElementById('syncBtn');
     btn.disabled = true; btn.textContent = '↻ Sync...';
     try {
-      const r = await fetch('/api/products/sync', { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
+      const r = await fetch('/api/products/sync', { method: 'POST', credentials: 'include' });
       const d = await r.json();
       toast(d.success ? t('prd_sync_success') : ('Gagal: ' + d.message), d.success ? 'success' : 'error');
       if (d.success) loadProducts();
@@ -401,7 +398,8 @@
     try {
       const r = await fetch('/api/orders/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           variant_id: currentVariant.id, 
           quantity: qty, 
@@ -434,7 +432,7 @@
   function show(id) { const el = document.getElementById(id); if (el) el.style.display = ''; }
   function hide(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
   function esc(s)   { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-  function logout() { localStorage.removeItem('token'); window.location.href = '/login'; }
+  function logout() { localStorage.removeItem('user_data'); fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {}); window.location.href = '/login'; }
   function toast(msg, type = 'info') {
     const c = document.getElementById('toastContainer');
     const t = document.createElement('div');

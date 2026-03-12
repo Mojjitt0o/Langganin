@@ -57,7 +57,7 @@
 
 <script>
   // Redirect jika sudah login
-  if (localStorage.getItem('token')) window.location.href = '/products';
+  if (localStorage.getItem('user_data')) window.location.href = '/products';
 
   document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -74,12 +74,18 @@
       const res  = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password })
       });
       const data = await res.json();
 
       if (data.success) {
-        localStorage.setItem('token', data.data.token);
+        // Save safe user profile (token is httpOnly cookie, never in localStorage)
+        const u = data.data.user;
+        localStorage.setItem('user_data', JSON.stringify({
+          id: u.id, username: u.username, email: u.email,
+          balance: u.balance, is_admin: u.is_admin
+        }));
         alertDiv.className = 'alert alert-success';
         alertDiv.textContent = t('auth_login_success');
         alertDiv.style.display = 'block';

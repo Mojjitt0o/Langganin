@@ -35,8 +35,8 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
 app.use(cors({
     origin(origin, callback) {
         // Allow same-origin requests (no Origin header) and listed origins
-        if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-        callback(new Error('Not allowed by CORS'));
+        if (!origin || allowedOrigins.some(o => o === origin || origin.startsWith(o.replace(/\/$/, '')))) return callback(null, true);
+        callback(null, false); // deny without triggering error handler
     },
     credentials: true // required for cookie-based auth
 }));

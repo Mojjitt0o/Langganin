@@ -165,8 +165,8 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <script>
-  const token = localStorage.getItem('token');
-  if (!token) { window.location.href = '/login'; }
+  const userData = localStorage.getItem('user_data');
+  if (!userData) { window.location.href = '/login'; }
 
   let allOrders = [];
   let isAdmin   = false;
@@ -187,7 +187,7 @@
 
   async function loadProfile() {
     try {
-      const r = await fetch('/api/auth/profile', { headers: { Authorization: 'Bearer ' + token } });
+      const r = await fetch('/api/auth/profile', { credentials: 'include' });
       const d = await r.json();
       if (d.success) {
         document.getElementById('navBalanceVal').textContent = 'Rp ' + Number(d.data.balance).toLocaleString('id-ID');
@@ -200,7 +200,7 @@
   async function loadOrders() {
     hide('tableWrap'); hide('emptyState'); hide('errorMsg'); show('loadWrap');
     try {
-      const r = await fetch('/api/orders/history', { headers: { Authorization: 'Bearer ' + token } });
+      const r = await fetch('/api/orders/history', { credentials: 'include' });
       const d = await r.json();
       if (d.success) {
         allOrders = d.data;
@@ -466,7 +466,7 @@ ${t('ord_wa_thanks')}`;
   function show(id) { const el = document.getElementById(id); if (el) el.style.display = ''; }
   function hide(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
   function esc(s)   { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-  function logout() { localStorage.removeItem('token'); window.location.href = '/login'; }
+  function logout() { localStorage.removeItem('user_data'); fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {}); window.location.href = '/login'; }
 
   function showToast(msg, type = 'info') {
     const el = document.createElement('div');

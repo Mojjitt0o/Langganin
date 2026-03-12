@@ -369,13 +369,12 @@
 
 <script>
 const API_BASE = '/api';
-let token = localStorage.getItem('token');
 let affData = null;
 
-function logout() { localStorage.removeItem('token'); window.location.href = '/login'; }
+function logout() { localStorage.removeItem('user_data'); fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {}); window.location.href = '/login'; }
 
 window.addEventListener('DOMContentLoaded', async () => {
-    if (!token) { window.location.href = '/login'; return; }
+    if (!localStorage.getItem('user_data')) { window.location.href = '/login'; return; }
     document.getElementById('navOrders').style.display = '';
     document.getElementById('navBalanceLink').style.display = '';
     document.getElementById('navBalanceVal').style.display = '';
@@ -397,7 +396,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 async function fetchAPI(endpoint, options = {}) {
     try {
         const res = await fetch(API_BASE + endpoint, {
-            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...options.headers },
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json', ...options.headers },
             ...options
         });
         return await res.json();

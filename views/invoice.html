@@ -319,12 +319,11 @@
 
     <script>
         const API_BASE = '/api';
-        const token = localStorage.getItem('token');
         const urlParams = new URLSearchParams(window.location.search);
         const orderId = urlParams.get('order_id');
         let snapLoaded = false;
 
-        function logout() { localStorage.removeItem('token'); window.location.href = '/login'; }
+        function logout() { localStorage.removeItem('user_data'); fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {}); window.location.href = '/login'; }
 
         // Close nav menu on link click (mobile)
         document.querySelectorAll('#navMenu a').forEach(link => {
@@ -364,7 +363,7 @@
                 return;
             }
 
-            if (!token) {
+            if (!localStorage.getItem('user_data')) {
                 window.location.href = '/login';
                 return;
             }
@@ -374,7 +373,7 @@
 
             try {
                 const res = await fetch(`${API_BASE}/topup/invoice/${orderId}`, {
-                    headers: { 'Authorization': 'Bearer ' + token }
+                    credentials: 'include'
                 });
 
                 const data = await res.json();
@@ -615,7 +614,8 @@
             try {
                 const res = await fetch(`${API_BASE}/topup/cancel/${orderId}`, {
                     method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' }
                 });
                 const data = await res.json();
 

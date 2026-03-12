@@ -855,7 +855,6 @@
 
 <script>
     const API_BASE = '/api';
-    let token = localStorage.getItem('token');
     let allProductsData = [];
     let allWithdrawalsData = [];
     let allAdminOrders = [];
@@ -865,7 +864,7 @@
 
     // ===== AUTH CHECK =====
     window.addEventListener('DOMContentLoaded', async () => {
-        if (!token) { window.location.href = '/login'; return; }
+        if (!localStorage.getItem('user_data')) { window.location.href = '/login'; return; }
 
         // Mobile nav toggle
         document.getElementById('adminNavToggle').addEventListener('click', () => {
@@ -909,7 +908,8 @@
     async function fetchAPI(endpoint, options = {}) {
         try {
             const res = await fetch(API_BASE + endpoint, {
-                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...options.headers },
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', ...options.headers },
                 ...options
             });
             return await res.json();

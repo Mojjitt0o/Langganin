@@ -559,8 +559,8 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <script>
-  const token = localStorage.getItem('token');
-  if (!token) { window.location.href = '/login'; }
+  const userData = localStorage.getItem('user_data');
+  if (!userData) { window.location.href = '/login'; }
 
   let isAdmin    = false;
   let allOrders  = [];
@@ -588,7 +588,7 @@
 
   async function loadProfile() {
     try {
-      const r = await fetch('/api/auth/profile', { headers: { Authorization: 'Bearer ' + token } });
+      const r = await fetch('/api/auth/profile', { credentials: 'include' });
       const d = await r.json();
       if (!d.success) { logout(); return; }
       const bal = Number(d.data.balance);
@@ -608,7 +608,7 @@
 
   async function checkPendingTopup() {
     try {
-      const r = await fetch('/api/topup/history', { headers: { Authorization: 'Bearer ' + token } });
+      const r = await fetch('/api/topup/history', { credentials: 'include' });
       const d = await r.json();
       if (d.success && d.data.length > 0) {
         // Find the most recent pending transaction
@@ -616,7 +616,7 @@
         if (pending) {
           // Verify status with invoice endpoint (which syncs with Midtrans)
           const verifyRes = await fetch(`/api/topup/invoice/${pending.order_id}`, {
-            headers: { Authorization: 'Bearer ' + token }
+            credentials: 'include'
           });
           const verifyData = await verifyRes.json();
           
@@ -654,7 +654,8 @@
     try {
       const r = await fetch(`/api/topup/cancel/${pendingTopupOrderId}`, {
         method: 'POST',
-        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
       });
       const d = await r.json();
       if (d.success) {
@@ -682,7 +683,7 @@
   async function loadHistory() {
     hide('txList'); hide('emptyState'); show('loadWrap');
     try {
-      const r = await fetch('/api/orders/history', { headers: { Authorization: 'Bearer ' + token } });
+      const r = await fetch('/api/orders/history', { credentials: 'include' });
       const d = await r.json();
       if (!d.success) throw new Error(d.message);
       allOrders = d.data;
@@ -862,7 +863,8 @@
     try {
       const r = await fetch('/api/topup/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount })
       });
       const d = await r.json();
@@ -933,7 +935,8 @@
     try {
       const r = await fetch('/api/withdrawal/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           amount, 
           bank_name: bankName,
@@ -995,7 +998,7 @@
   function show(id) { const el = document.getElementById(id); if (el) el.style.display = ''; }
   function hide(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
   function esc(s)   { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-  function logout() { localStorage.removeItem('token'); window.location.href = '/login'; }
+  function logout() { localStorage.removeItem('user_data'); fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {}); window.location.href = '/login'; }
   function toast(msg, type = 'info') {
     const c = document.getElementById('toastContainer');
     const el = document.createElement('div');

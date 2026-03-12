@@ -130,7 +130,7 @@
             <strong>Mau Pasang Iklan di Sini?</strong>
             <span>Jangkau ribuan pengguna aktif Langganin setiap harinya. Hubungi kami via Telegram untuk info harga & slot iklan.</span>
           </div>
-          <a href="#" class="ann-ads-btn" id="annTelegramBtn" target="_blank" rel="noopener noreferrer">
+          <a href="https://t.me/langganin_support_bot" class="ann-ads-btn" id="annTelegramBtn" target="_blank" rel="noopener noreferrer">
             ✈ Hubungi
           </a>
         </div>
@@ -147,10 +147,10 @@
 </div>
 
 <script>
-  const token = localStorage.getItem('token');
+  const userData = localStorage.getItem('user_data');
 
   // Navbar state
-  if (token) {
+  if (userData) {
     document.getElementById('navOrders').style.display = '';
     document.getElementById('navBalance').style.display = '';
     document.getElementById('navBalanceVal').style.display = '';
@@ -158,7 +158,7 @@
     document.getElementById('navLogout').style.display = '';
     document.getElementById('navLogin').style.display = 'none';
     document.getElementById('navReg').style.display = 'none';
-    fetch('/api/auth/profile', { headers: { Authorization: 'Bearer ' + token } })
+    fetch('/api/auth/profile', { credentials: 'include' })
       .then(r => r.json()).then(d => {
         if (d.success) {
           document.getElementById('navBalanceVal').textContent = 'Rp ' + Number(d.data.balance).toLocaleString('id-ID');
@@ -167,7 +167,8 @@
   }
 
   function logout() {
-    localStorage.removeItem('token');
+    localStorage.removeItem('user_data');
+    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     window.location.href = '/';
   }
 
@@ -217,17 +218,6 @@
     const closeBtn = document.getElementById('annClose');
     const okBtn   = document.getElementById('annOkBtn');
     const checkbox = document.getElementById('annDontShow');
-    const tgBtn   = document.getElementById('annTelegramBtn');
-
-    // Fetch bot username for ads button
-    fetch('/api/support/bot-info', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => {
-        if (d.botUsername) {
-          tgBtn.href = 'https://t.me/' + d.botUsername;
-        }
-      })
-      .catch(() => {});
 
     function closeModal() {
       if (checkbox.checked) {

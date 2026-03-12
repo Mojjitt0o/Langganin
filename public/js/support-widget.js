@@ -295,12 +295,9 @@
   fab.addEventListener('click', toggle);
   overlay.addEventListener('click', close);
 
-  // ── Fetch bot username (optional pre-fetch) ────────────────
-  let botUsername = '';
-  fetch('/api/support/bot-info')
-    .then(r => r.json())
-    .then(d => { if (d.botUsername) botUsername = d.botUsername; })
-    .catch(() => {});
+  // ── Bot username (hardcoded) ───────────────────────────────
+  const botUsername = 'langganin_support_bot';
+  tgLink.href = 'https://t.me/' + botUsername;
 
   // ── Submit ─────────────────────────────────────────────────
   sendBtn.addEventListener('click', async function () {
@@ -328,12 +325,7 @@
 
       if (data.success) {
         // If we got botUsername from response or pre-fetch
-        const uname = data.botUsername || botUsername;
-        if (uname) {
-          tgLink.href = `https://t.me/${uname}`;
-        } else {
-          tgLink.style.display = 'none';
-        }
+        tgLink.href = 'https://t.me/' + botUsername;
         formView.style.display = 'none';
         successView.style.display = '';
       } else {
