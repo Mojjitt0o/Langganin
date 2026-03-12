@@ -264,7 +264,7 @@
       
       // Show different button for logged in vs not logged in users
       let buttonHtml;
-      if (!token) {
+      if (!userData) {
         buttonHtml = `<a href="/login" class="btn-buy" style="text-align:center; text-decoration:none;">${t('prd_login_to_buy')}</a>`;
       } else if (outOfStock) {
         buttonHtml = `<button class="btn-buy" disabled>${t('prd_out_of_stock')}</button>`;
@@ -312,7 +312,7 @@
   // ── Order Confirm Modal ──
   function openOrderModal(variantId, name, sellPrice, origPrice) {
     // Check if user is logged in
-    if (!token) {
+    if (!userData) {
       toast(t('prd_login_first'), 'info');
       setTimeout(() => { window.location.href = '/login'; }, 1500);
       return;
