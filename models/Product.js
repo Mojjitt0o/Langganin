@@ -21,7 +21,7 @@ class Product {
                          name = EXCLUDED.name,
                          category = EXCLUDED.category,
                          description = EXCLUDED.description,
-                         image_url = EXCLUDED.image_url`,
+                         image_url = CASE WHEN EXCLUDED.image_url IS NOT NULL THEN EXCLUDED.image_url ELSE products.image_url END`,
                         [product.id, product.name, product.category, product.description, product.image_url || null]
                     );
 
