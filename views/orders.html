@@ -206,12 +206,63 @@
         allOrders = d.data;
         renderStats(allOrders);
         renderOrders(allOrders);
+        // Poll for account details that haven't been fetched yet
+        pollAccountDetails();
       } else throw new Error(d.message);
     } catch (err) {
       hide('loadWrap');
       show('errorMsg');
       document.getElementById('errorMsg').textContent = t('ord_load_fail') + err.message;
     }
+  }
+
+  // Poll for account details for orders that don't have them yet
+  async function pollAccountDetails() {
+    // We poll for *any* order that lacks account details (even if still processing).
+    // This ensures details appear once the partner API provides them.
+    const ordersNeedingDetails = allOrders.filter(o => 
+      !o.account_details && !['failed','cancelled'].includes(o.status)
+    );
+    
+    if (ordersNeedingDetails.length === 0) return;
+
+    // Poll every 3 seconds for up to 5 minutes
+    let pollAttempts = 0;
+    const maxAttempts = 100;
+    const pollInterval = 3000;
+
+    const poll = async () => {
+      for (const order of ordersNeedingDetails) {
+        try {
+          const response = await fetch(`/api/orders/${order.order_id}/account-details`, { 
+            credentials: 'include' 
+          });
+          const result = await response.json();
+          
+          if (result.success && result.data) {
+            // Update the order with account details
+            const idx = allOrders.findIndex(o => o.order_id === order.order_id);
+            if (idx >= 0) {
+              allOrders[idx].account_details = result.data;
+              renderOrders(allOrders.filter(o => {
+                const f = document.getElementById('statusFilter').value;
+                return f === 'all' || o.status === f;
+              }));
+            }
+          }
+        } catch (err) {
+          console.error(`Error fetching account details for order ${order.order_id}:`, err);
+        }
+      }
+
+      pollAttempts++;
+      if (pollAttempts < maxAttempts) {
+        setTimeout(poll, pollInterval);
+      }
+    };
+
+    // Start polling
+    poll();
   }
 
   function renderStats(orders) {

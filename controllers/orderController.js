@@ -26,7 +26,7 @@ const orderController = {
         } catch (error) {
             logger.error('Order error: ' + error.message);
             // Expose user-facing errors (balance / variant not found), but not raw DB errors
-            const safeMessages = ['Saldo tidak cukup', 'Variant tidak ditemukan', 'User tidak ditemukan', 'Supplier error'];
+            const safeMessages = ['Saldo tidak cukup', 'Variant tidak ditemukan', 'User tidak ditemukan', 'Pesanan gagal diproses'];
             const isSafe = safeMessages.some(m => error.message.startsWith(m));
             res.status(isSafe ? 400 : 500).json({
                 success: false,
@@ -138,6 +138,44 @@ const orderController = {
         } catch (error) {
             logger.error('getOrderDetail error: ' + error.message);
             res.status(500).json({ success: false, message: 'Gagal mengambil detail order.' });
+        }
+    },
+
+    // Get or fetch account details for an order
+    async getAccountDetails(req, res) {
+        try {
+            const { order_id } = req.params;
+            
+            const order = await Order.getOrderById(order_id);
+            if (!order) {
+                return res.status(404).json({ success: false, message: 'Order tidak ditemukan' });
+            }
+
+            // Check if user owns this order (unless admin)
+            if (!req.isAdmin && order.user_id !== req.userId) {
+                return res.status(403).json({ success: false, message: 'Akses ditolak' });
+            }
+
+            // If account details already exist, return them
+            if (order.account_details) {
+                const details = typeof order.account_details === 'string' 
+                    ? JSON.parse(order.account_details) 
+                    : order.account_details;
+                return res.json({ success: true, data: details });
+            }
+
+            // Otherwise, try to fetch from WR API
+            const accountDetails = await Order.fetchAccountDetailsFromWR(order_id);
+            if (accountDetails) {
+                // Save for future use
+                await Order.setAccountDetails(order_id, accountDetails);
+                return res.json({ success: true, data: accountDetails });
+            }
+
+            res.json({ success: false, message: 'Detail akun belum tersedia', data: null });
+        } catch (error) {
+            logger.error('getAccountDetails error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal mengambil detail akun.' });
         }
     }
 };

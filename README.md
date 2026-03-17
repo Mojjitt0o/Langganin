@@ -2,7 +2,8 @@
 
 Platform reseller produk digital premium (Netflix, Spotify, Canva Pro, YouTube Premium, dll.) dengan integrasi Warung Rebahan API.
 
-**v3.0** — Security & Refactor Update
+**v3.0** — Security & Refactor Update  
+**v3.1** — Auto Account Details Feature
 
 ## ✨ Fitur
 
@@ -10,6 +11,7 @@ Platform reseller produk digital premium (Netflix, Spotify, Canva Pro, YouTube P
 - 📦 Sinkronisasi produk dari Warung Rebahan API
 - 💳 Top Up saldo via Midtrans (QRIS, bank transfer, e-wallet, Alfamart)
 - 🛒 Order management dengan koneksi langsung ke supplier WR
+- 📋 **Auto Account Details** — Detail akun langsung muncul setelah order (Fitur Baru!)
 - 💰 Sistem withdrawal dengan flow approve/reject admin
 - 🤝 Sistem affiliate & referral (komisi + diskon buyer)
 - 📊 Admin dashboard: statistik, profit, manajemen user, produk, order
@@ -149,7 +151,70 @@ warung-rebahan-shop/
 └── server.js                    # Entry point
 ```
 
-## 🔧 API Endpoints
+## ⚖️ Warung Rebahan — Syarat & Ketentuan
+
+Semua transaksi dan produk di Langganin tunduk pada Syarat & Ketentuan resmi Warung Rebahan. **Pastikan Anda membaca dan memahami ketentuan berikut sebelum melakukan pembelian.**
+
+### 1️⃣ Ketentuan Umum
+
+- Layanan hanya untuk penggunaan pribadi (bukan untuk dijual ulang tanpa izin)
+- Warung Rebahan berhak mengubah harga dan jenis paket kapan saja
+- Dengan membeli, Anda setuju dengan semua aturan Warung Rebahan
+
+### 2️⃣ Pembelian & Aktivasi
+
+- **Pembayaran QRIS divalidasi otomatis dalam 1-3 detik**
+- Detail akun dikirimkan langsung ke WhatsApp & Dashboard
+- Pastikan nomor WhatsApp yang dimasukkan sudah benar dan aktif
+- Kesalahan input nomor atau data = tanggung jawab pembeli (tidak bisa refund)
+
+### 3️⃣ Larangan & Sanksi (Akun Bisa Di-Ban tanpa Refund)
+
+❌ **Dilarang:**
+- Mengubah Email/Password pada akun sharing
+- Menggunakan akun pada device melebihi limit (contoh: Netflix max 4 devices)
+- Menggunakan VPN/Proxy yang tidak diizinkan oleh penyedia
+- Mengganggu atau mengubah profil milik orang lain
+
+### 4️⃣ Garansi & Refund (Penting!)
+
+**Kami memberikan garansi perbaikan/penggantian akun, BUKAN uang kembali:**
+
+#### Masa Perlindungan: Hari 1-60
+✅ **Akun bermasalah atau backfree (gratis)?**
+- Klaim garansi → Kami perbaiki atau ganti akun GRATIS
+
+#### Masa Penggunaan: Hari 61-365
+❌ **Sudah tidak ada garansi**
+- Akun bisa terus digunakan normal sampai masa aktif habis
+- Klaim garansi tidak bisa dilakukan di periode ini
+
+**Refund hanya diberikan jika:**
+- Kami benar-benar tidak bisa memberikan solusi teknis dalam 48 jam
+- Jika ada kendala ≤ 60 hari, prioritas adalah fixing/penggantian akun
+
+**Contoh Kasus:**
+```
+Anda membeli Viu Premium 365 Hari (masa garansi 60 hari):
+├─ Hari 1-60: Akun rusak → BISA KLAIM ✅ (ganti/perbaiki)
+└─ Hari 61-365: Akun rusak → TIDAK BISA KLAIM ❌ (garansi habis)
+```
+
+### 5️⃣ Metode Pembayaran
+
+Warung Rebahan mendukung:
+- 💳 QRIS (tercepat, otomatis terverifikasi 1-3 detik)
+- 🏦 Bank Transfer (BCA, Mandiri, BNI)
+- 📱 E-wallet populer (Dana, OVO, GOPAY, LinkAja, dll)
+- 🏪 Alfamart/Indomaret (cash payment)
+
+---
+
+**📖 Baca lengkap:** https://warungrebahan.com/terms  
+**❓ FAQ:** https://warungrebahan.com/faq  
+**🔄 Cek Refund:** https://warungrebahan.com/cek-refund
+
+---
 
 ### Authentication
 | Method | Endpoint | Auth | Deskripsi |
@@ -174,6 +239,7 @@ warung-rebahan-shop/
 |--------|----------|------|-----------|
 | POST | `/api/orders/create` | ✅ | Buat order |
 | GET  | `/api/orders/history` | ✅ | Riwayat order user |
+| GET  | `/api/orders/:order_id/account-details` | ✅ | **[BARU]** Ambil account details (auto-fetched) |
 | GET  | `/api/orders/profit-summary?page=1&limit=50` | Admin | Dashboard profit |
 | GET  | `/api/orders/:id/detail` | Admin | Detail order |
 | PATCH | `/api/orders/:id/status` | Admin | Update status |
@@ -237,8 +303,97 @@ Format: `YYYY-MM-DD HH:mm:ss [level]: message`
 
 Level: `debug` (development) | `info` (production)
 
-## 🐛 Troubleshooting
+## � Auto Account Details (v3.1)
 
+**Fitur baru:** Detail akun sekarang diambil otomatis dari Warung Rebahan API tanpa input admin!
+
+### Alur Kerja
+
+1. User membuat order → Disimpan ke database
+2. Backend **otomatis fetch detail akun** dari WR API (background, non-blocking)
+3. Frontend **polling setiap 3 detik** untuk mengecek apakah detail sudah tersedia
+4. Ketika detail sampeai → **Update otomatis** tanpa refresh halaman
+5. User lihat email/password langsung di halaman pesanan
+
+### Format Data
+
+**Dari WR API (Struktur asli):**
+```json
+{
+  "account_details": [
+    {
+      "product": "Canva Pro - Member Pro",
+      "details": [
+        {
+          "title": "Akun 1",
+          "credentials": [
+            {"label": "Email", "value": "user1@example.com"},
+            {"label": "Password", "value": "secret123"}
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Disimpan & Ditampilkan (Format Frontend):**
+```json
+{
+  "Produk": "Canva Pro - Member Pro",
+  "Akun 1 - Email": "user1@example.com",
+  "Akun 1 - Password": "secret123"
+}
+```
+
+### Endpoint
+
+```http
+GET /api/orders/:order_id/account-details
+
+# Response (jika detail tersedia)
+{
+  "success": true,
+  "data": {
+    "Produk": "Canva Pro - Member Pro",
+    "Akun 1 - Email": "user@example.com",
+    "Akun 1 - Password": "secret123"
+  }
+}
+```
+
+### Polling Behavior
+
+- **Interval:** 3 detik
+- **Max polling:** 100 kali (≈ 5 menit)
+- **Target orders:** Status = success/done/completed (yang belum punya account_details)
+
+Bisa dikonfigurasi di `views/orders.html`:
+```javascript
+const pollInterval = 3000;  // ubah ke 5000 untuk 5 detik
+const maxAttempts = 100;     // ubah untuk durasi lebih lama
+```
+
+---
+
+## �🐛 Troubleshooting
+### Account Details Tidak Muncul
+
+**Masalah:** Detail akun tetap kosong meskipun sudah lama
+**Solusi:**
+1. Pastikan WR API endpoint `/order/detail` sudah tersedia
+2. Cek server logs: `node server.js` → cari error message
+3. Cek database: `SELECT account_details FROM orders WHERE status='done' LIMIT 1;`
+4. Buka browser console (F12) → Console tab → Cek request error
+5. Cek polling status di console → seharusnya ada request `/api/orders/:order_id/account-details`
+
+**Debug:** Tambah log di backend `models/Order.js`:
+```javascript
+// Di dalam fetchAccountDetailsFromWR()
+logger.info(`Fetching WR details for order: ${orderId}`);
+```
+
+---
 ### Database Connection Error
 - Pastikan PostgreSQL berjalan
 - Cek kredensial di `.env`
@@ -260,7 +415,34 @@ netstat -ano | findstr :3000
 taskkill /PID <PID> /F
 ```
 
-## 📄 License
+## � Warung Rebahan Support & Resources
+
+**Official Links:**
+- 🌐 Website: https://warungrebahan.com
+- 📋 Syarat & Ketentuan: https://warungrebahan.com/terms
+- ❓ FAQ: https://warungrebahan.com/faq
+- 📠 API Docs: https://warungrebahan.com/api-docs
+- 💬 WhatsApp Admin: https://wa.me/6289628522213
+- 🔄 Cek Refund Status: https://warungrebahan.com/cek-refund
+- 🧾 Cek Invoice: https://warungrebahan.com/cek-invoice
+- 📞 Pusat Bantuan: https://warungrebahan.com/faq
+
+**Produk WR yang Didukung:**
+- Netflix Premium
+- Spotify Family
+- YouTube Premium
+- Canva Pro
+- Disney+
+- ChatGPT+ Premium
+- CapCut Pro
+- Apple Music
+- Github Student
+- Getcontact Premium
+- Dan banyak lagi...
+
+---
+
+## �📄 License
 
 MIT License
 

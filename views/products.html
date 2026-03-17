@@ -46,7 +46,6 @@
       </div>
       <div style="display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;">
         <input type="text" class="form-input" id="searchInput" data-i18n-placeholder="prd_search" placeholder="🔍 Cari produk..." style="width:220px; max-width:100%;" oninput="filterProducts()" />
-        <button class="btn btn-secondary btn-sm" onclick="syncProducts()" id="syncBtn" data-i18n-title="prd_sync_title" data-i18n="prd_sync">↻ Sync</button>
       </div>
     </div>
 
@@ -126,6 +125,7 @@
       document.getElementById('navAdmin').style.display = 'none';
     }
     loadProducts();
+    
     document.getElementById('navToggle').addEventListener('click', () => {
       document.getElementById('navMenu').classList.toggle('open');
     });
@@ -188,15 +188,7 @@
   }
 
   async function syncProducts() {
-    const btn = document.getElementById('syncBtn');
-    btn.disabled = true; btn.textContent = '↻ Sync...';
-    try {
-      const r = await fetch('/api/products/sync', { method: 'POST', credentials: 'include' });
-      const d = await r.json();
-      toast(d.success ? t('prd_sync_success') : ('Gagal: ' + d.message), d.success ? 'success' : 'error');
-      if (d.success) loadProducts();
-    } catch { toast(t('prd_sync_fail'), 'error'); }
-    finally { btn.disabled = false; btn.textContent = t('prd_sync'); }
+    // Auto-sync disabled - products update automatically
   }
 
   // ── Render compact product cards ──

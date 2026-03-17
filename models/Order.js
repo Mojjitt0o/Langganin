@@ -61,12 +61,12 @@ class Order {
             const apiResponse = await axios.post(`${process.env.WR_API_URL}/order`, apiPayload, { timeout: 15000 });
 
             if (!apiResponse.data || !apiResponse.data.success) {
-                throw new Error(apiResponse.data?.message || 'Order ke supplier gagal');
+                throw new Error(apiResponse.data?.message || 'Pesanan gagal diproses. Silakan coba lagi.');
             }
             apiOrder = apiResponse.data.data;
         } catch (apiError) {
             if (apiError.response) {
-                throw new Error(`Supplier error: ${apiError.response.data?.message || apiError.response.statusText}`);
+                throw new Error(`Pesanan gagal diproses: ${apiError.response.data?.message || 'Silakan coba lagi'}`);
             }
             throw apiError;
         }
@@ -129,7 +129,8 @@ class Order {
 
             await client.query('COMMIT');
 
-            return {
+            // Fetch account details from WR API asynchronously (non-blocking)
+            const result = {
                 ...apiOrder,
                 original_total:    originalTotal,
                 our_total:         sellTotal,
@@ -138,12 +139,73 @@ class Order {
                 commission_amount: commissionAmount,
                 profit
             };
+
+            // Fetch and store account details in background
+            (async () => {
+                try {
+                    const accountDetails = await Order.fetchAccountDetailsFromWR(apiOrder.order_id);
+                    if (accountDetails) {
+                        await Order.setAccountDetails(apiOrder.order_id, accountDetails);
+                        logger.info(`Account details fetched and saved for order ${apiOrder.order_id}`);
+                    }
+                } catch (err) {
+                    logger.error(`Failed to fetch account details for order ${apiOrder.order_id}: ${err.message}`);
+                }
+            })();
+
+            return result;
         } catch (dbErr) {
             await client.query('ROLLBACK');
             logger.error(`Order DB transaction rolled back for WR order ${apiOrder?.order_id}: ${dbErr.message}`);
             throw dbErr;
         } finally {
             client.release();
+        }
+    }
+
+    // Fetch account details from WR API
+    static async fetchAccountDetailsFromWR(orderId) {
+        try {
+            const apiResponse = await axios.post(`${process.env.WR_API_URL}/order/detail`, {
+                api_key: process.env.WR_API_KEY,
+                order_id: orderId
+            }, { timeout: 10000 });
+
+            if (!apiResponse.data || !apiResponse.data.success) {
+                logger.warn(`WR API order detail failed for ${orderId}: ${apiResponse.data?.message}`);
+                return null;
+            }
+
+            const orderData = apiResponse.data.data;
+            
+            // Transform WR API account_details format to the format we use
+            if (orderData.account_details && Array.isArray(orderData.account_details)) {
+                const formatted = {};
+                orderData.account_details.forEach(item => {
+                    if (item.product) {
+                        formatted['Produk'] = item.product;
+                    }
+                    if (item.details && Array.isArray(item.details)) {
+                        item.details.forEach(detail => {
+                            if (detail.title) {
+                                if (detail.credentials && Array.isArray(detail.credentials)) {
+                                    detail.credentials.forEach(cred => {
+                                        if (cred.label && cred.value) {
+                                            formatted[`${detail.title} - ${cred.label}`] = cred.value;
+                                        }
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+                return Object.keys(formatted).length > 0 ? formatted : null;
+            }
+
+            return null;
+        } catch (error) {
+            logger.error(`WR API call error for order detail: ${error.message}`);
+            return null;
         }
     }
 

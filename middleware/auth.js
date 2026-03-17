@@ -39,9 +39,22 @@ const authMiddleware = {
             if (!user || !user.is_admin) {
                 return res.status(403).json({ success: false, message: 'Admin access required' });
             }
+            req.isAdmin = true;
             next();
         } catch {
             return res.status(500).json({ success: false, message: 'Server error' });
+        }
+    },
+
+    // Optional: Check if user is admin but don't require it
+    async checkAdmin(req, res, next) {
+        try {
+            const user = await User.findById(req.userId);
+            req.isAdmin = user && user.is_admin ? true : false;
+            next();
+        } catch {
+            req.isAdmin = false;
+            next();
         }
     },
 

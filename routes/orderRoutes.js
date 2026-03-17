@@ -11,6 +11,9 @@ router.get('/wr-balance', authMiddleware.verifyToken, authMiddleware.isAdmin, or
 // Admin: dashboard profit web
 router.get('/profit-summary', authMiddleware.verifyToken, authMiddleware.isAdmin, orderController.getProfitSummary);
 
+// User or Admin: get account details for an order
+router.get('/:order_id/account-details', authMiddleware.verifyToken, authMiddleware.checkAdmin, orderController.getAccountDetails);
+
 // Admin: order management
 router.get('/:order_id/detail', authMiddleware.verifyToken, authMiddleware.isAdmin, orderController.getOrderDetail);
 router.patch('/:order_id/status', authMiddleware.verifyToken, authMiddleware.isAdmin, orderController.updateOrderStatus);
