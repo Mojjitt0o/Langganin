@@ -17,9 +17,6 @@ router.get('/:order_id/account-details', authMiddleware.verifyToken, authMiddlew
 // Admin: manually save account details (useful if data sent directly by developer)
 router.post('/:order_id/account-details', authMiddleware.verifyToken, authMiddleware.isAdmin, orderController.saveAccountDetails);
 
-// Admin: fetch account details from WR API + auto-update order status to "completed"
-router.post('/:order_id/fetch-from-wr', authMiddleware.verifyToken, authMiddleware.isAdmin, orderController.fetchFromWR);
-
 // Admin: order management
 router.get('/:order_id/detail', authMiddleware.verifyToken, authMiddleware.isAdmin, orderController.getOrderDetail);
 router.patch('/:order_id/status', authMiddleware.verifyToken, authMiddleware.isAdmin, orderController.updateOrderStatus);

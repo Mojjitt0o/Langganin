@@ -251,4 +251,64 @@ app.listen(PORT, async () => {
     logger.info(`📦 Database: ${process.env.DB_NAME}`);
     logger.info(`🤖 Telegram mode: ${useWebhook ? 'webhook' : 'polling'}`);
     logger.info(`========================================`);
+
+    // ── BACKGROUND TASK: Auto-fetch WR account details for pending orders ──────
+    const Order = require('./models/Order');
+    const db = require('./config/database');
+
+    setInterval(async () => {
+        try {
+            // Get all processing orders without account details
+            const orders = await new Promise((resolve, reject) => {
+                db.all(
+                    `SELECT order_id, product_name FROM orders 
+                     WHERE status = 'processing' AND (account_details IS NULL OR account_details = '')
+                     LIMIT 10`,
+                    (err, rows) => {
+                        if (err) reject(err);
+                        else resolve(rows || []);
+                    }
+                );
+            });
+
+            // Try to fetch from WR API for each pending order
+            for (const order of orders) {
+                try {
+                    const accountDetails = await Order.fetchAccountDetailsFromWR(order.order_id);
+                    
+                    if (accountDetails) {
+                        // Save account details
+                        await Order.setAccountDetails(order.order_id, accountDetails);
+                        
+                        // Update status to completed
+                        await new Promise((resolve, reject) => {
+                            db.run(
+                                'UPDATE orders SET status = ? WHERE order_id = ?',
+                                ['completed', order.order_id],
+                                function(err) {
+                                    if (err) reject(err);
+                                    else resolve();
+                                }
+                            );
+                        });
+
+                        logger.info(`🔄 [BG Task] ✅ Order ${order.order_id}: Details fetched & status → completed`);
+                        
+                        // Notify admin
+                        telegramBot.logEvent(
+                            '✅ Order Auto-Completed',
+                            `Order ID: ${order.order_id}\nProduct: ${order.product_name || '-'}\nAccount details fetched from WR API`
+                        );
+                    }
+                } catch (err) {
+                    // Silently continue — will retry on next interval
+                    logger.debug(`[BG Task] Fetch pending for ${order.order_id}: ${err.message?.substring(0, 50)}`);
+                }
+            }
+        } catch (err) {
+            logger.debug(`[BG Task] Error checking pending orders: ${err.message}`);
+        }
+    }, 20000); // Check every 20 seconds
+
+    logger.info(`⏱️  Background auto-fetch task started (every 20 seconds)`);
 });
