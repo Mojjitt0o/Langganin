@@ -244,14 +244,14 @@
   })();
   </script>
   <!-- ADS MODAL -->
-  <div class="ads-modal" id="adsModal" style="display:none; position:fixed; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.45); z-index:99999; align-items:center; justify-content:center;">
-    <div class="ads-box" style="background:#fff; max-width:480px; margin:auto; border-radius:18px; box-shadow:0 8px 32px rgba(0,0,0,0.18); padding:2.5rem 2rem 2rem 2rem; position:relative;">
-      <button id="adsClose" style="position:absolute; top:16px; right:16px; background:none; border:none; font-size:1.7rem; cursor:pointer; color:#888;">✕</button>
-      <div id="adsBanner" style="background:#2563eb; color:#fff; font-weight:700; border-radius:8px; padding:0.5em 1em; font-size:1.1rem; margin-bottom:1rem; display:flex; align-items:center; gap:0.5em;"><span style="font-size:1.3em;">🤝</span><span id="adsBannerText">BINGX PARTNERSHIP</span></div>
-      <div id="adsTitle" style="font-weight:700; font-size:1.35rem; margin-bottom:0.7rem; color:#2563eb; display:flex; align-items:center; gap:0.5em;"><span style="font-size:1.3em;">🔥</span><span></span></div>
-      <div id="adsYoutube" style="margin-bottom:1.2rem; display:none;"></div>
-      <div id="adsContentHtml" style="margin-bottom:1.2rem; color:#444;"></div>
-      <a id="adsJoinBtn" href="#" target="_blank" rel="noopener" style="display:inline-block; background:#2563eb; color:#fff; font-weight:600; border-radius:8px; padding:0.7em 1.4em; font-size:1rem; text-decoration:none; margin-top:0.5rem; box-shadow:0 2px 8px rgba(37,99,235,0.08); transition:background 0.2s;">Join Sekarang 🚀</a>
+  <div class="ads-modal" id="adsModal" role="dialog" aria-modal="true" aria-labelledby="adsTitle">
+    <div class="ads-box" role="document">
+      <button id="adsClose" class="ads-close" aria-label="Close ads modal">✕</button>
+      <div id="adsBanner" class="ads-banner"><span class="ads-banner-icon">🤝</span><span id="adsBannerText">BINGX PARTNERSHIP</span></div>
+      <div id="adsTitle" class="ads-title" aria-live="polite"><span class="ads-title-icon">🔥</span><span id="adsTitleText"></span></div>
+      <div id="adsYoutube" class="ads-video"></div>
+      <div id="adsContentHtml" class="ads-content"></div>
+      <a id="adsJoinBtn" class="ads-cta" href="#" target="_blank" rel="noopener" data-i18n="ads_join_btn">Join Sekarang 🚀</a>
     </div>
   </div>
   <script>
@@ -276,7 +276,12 @@
     // YouTube embed
     const ytDiv = document.getElementById('adsYoutube');
     if (adsData.youtube_url) {
-      ytDiv.innerHTML = `<iframe width="100%" height="220" src="${adsData.youtube_url.replace('watch?v=', 'embed/')}" frameborder="0" allowfullscreen style="border-radius:12px;"></iframe>`;
+      const embedUrl = adsData.youtube_url.replace('watch?v=', 'embed/');
+      ytDiv.innerHTML = `
+        <div class="ads-video-wrapper">
+          <iframe src="${embedUrl}" frameborder="0" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>
+        </div>
+      `;
       ytDiv.style.display = 'block';
     } else {
       ytDiv.innerHTML = '';

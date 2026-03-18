@@ -49,6 +49,7 @@ id: {
   idx_stat_orders: 'Order Sukses',
   idx_stat_users: 'Pengguna Aktif',
   idx_footer: '© 2026 Langganin. Dibuat dengan ❤️',
+  ads_join_btn: 'Join Sekarang 🚀',
 
   // ─── Products Page ───
   prd_title: 'Produk — Langganin',
@@ -657,6 +658,7 @@ en: {
   idx_stat_orders: 'Successful Orders',
   idx_stat_users: 'Active Users',
   idx_footer: '© 2026 Langganin. Made with ❤️',
+  ads_join_btn: 'Join Now 🚀',
 
   // ─── Products Page ───
   prd_title: 'Products — Langganin',
