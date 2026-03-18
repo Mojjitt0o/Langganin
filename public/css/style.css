@@ -622,7 +622,6 @@ input, button, select, textarea { font-family: inherit; }
   cursor: pointer; transition: var(--trans); 
   white-space: nowrap;
   box-shadow: var(--shadow-sm);
-}
   flex-shrink: 0;
 }
 .btn-buy:hover { 
