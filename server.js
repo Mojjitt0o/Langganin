@@ -260,13 +260,21 @@ app.listen(PORT, async () => {
     setInterval(async () => {
         try {
             // Get all processing orders without account details (using PostgreSQL query API)
-            const [orders] = await db.query(
-                `SELECT o.order_id, p.name as product_name FROM orders o
-                 LEFT JOIN product_variants pv ON o.variant_id = pv.id
-                 LEFT JOIN products p ON pv.product_id = p.id
-                 WHERE o.status = 'processing' AND (o.account_details IS NULL OR o.account_details = '')
-                 LIMIT 10`
-            );
+            // Use try-catch here to log better errors
+            let orders;
+            try {
+                const [result] = await db.query(
+                    `SELECT o.order_id, p.name as product_name FROM orders o
+                     LEFT JOIN product_variants pv ON o.variant_id = pv.id
+                     LEFT JOIN products p ON pv.product_id = p.id
+                     WHERE o.status = 'processing' AND (o.account_details IS NULL OR TRIM(CAST(o.account_details as varchar)) = '')
+                     LIMIT 10`
+                );
+                orders = result;
+            } catch (queryErr) {
+                logger.warn(`[BG Task] Query error (retrying next cycle): ${queryErr.message}`);
+                return; // Skip this cycle, will retry next time
+            }
 
             if (!orders || orders.length === 0) return;
 
