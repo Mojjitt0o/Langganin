@@ -259,12 +259,13 @@ app.listen(PORT, async () => {
 
     setInterval(async () => {
         try {
-            // Get all processing orders (don't check account_details in query to avoid JSON errors)
+            // Get ALL orders (any status) that don't have account_details yet
+            // Admin will manage the status separately - we just auto-fetch details from WR
             const [orders] = await db.query(
                 `SELECT o.order_id, p.name as product_name, o.account_details FROM orders o
                  LEFT JOIN product_variants pv ON o.variant_id = pv.id
                  LEFT JOIN products p ON pv.product_id = p.id
-                 WHERE o.status = 'processing'
+                 WHERE o.account_details IS NULL OR TRIM(o.account_details) = ''
                  LIMIT 10`
             );
 
@@ -292,21 +293,15 @@ app.listen(PORT, async () => {
                         logger.info(`💾 [BG Task] Saving account details for ${orderId}`);
                         await Order.setAccountDetails(orderId, accountDetails);
                         
-                        // Then update status to completed
-                        logger.info(`📤 [BG Task] Updating status to 'completed' for ${orderId}`);
-                        await db.query(
-                            `UPDATE orders SET status = 'completed', updated_at = CURRENT_TIMESTAMP
-                             WHERE order_id = $1 AND status = 'processing'`,
-                            [orderId]
-                        );
-
-                        logger.info(`🔄 [BG Task] ✅ Order ${orderId}: Details fetched & status → completed`);
+                        logger.info(`🔄 [BG Task] ✅ Order ${orderId}: Account details fetched from WR API (status managed by admin)`);
                         
                         // Notify admin
                         telegramBot.logEvent(
-                            '✅ Order Auto-Completed',
-                            `Order ID: ${orderId}\nProduct: ${order.product_name || '-'}\nAccount details fetched from WR API`
+                            '✅ Account Details Fetched',
+                            `Order ID: ${orderId}\nProduct: ${order.product_name || '-'}\nDetails fetched from WR API (admin can now complete order)`
                         );
+                    } else {
+                        logger.debug(`[BG Task] ℹ️ ${orderId}: WR API still hasn't provided account details`);
                     }
 
                 } catch (err) {
@@ -321,5 +316,7 @@ app.listen(PORT, async () => {
         }
     }, 20000); // Check every 20 seconds
 
-    logger.info(`⏱️  Background auto-fetch task started (every 20 seconds, race-condition safe)`);
+    logger.info(`⏱️  Background auto-fetch task started (every 20 seconds)`);
+    logger.info(`📋 Task: Auto-fetch account details from WR API for ALL orders without details`);
+    logger.info(`👤 Admin status: Managed separately by admin user`);
 });
