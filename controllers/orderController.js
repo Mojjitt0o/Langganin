@@ -237,6 +237,35 @@ const orderController = {
             logger.error('saveAccountDetails error: ' + error.message);
             res.status(500).json({ success: false, message: 'Gagal menyimpan account details.' });
         }
+    },
+
+    // Admin Debug: Get raw WR API response
+    async debugWRApiResponse(req, res) {
+        try {
+            const { order_id } = req.params;
+            logger.info(`[DEBUG] Admin requesting raw WR API response for ${order_id}`);
+
+            const apiResponse = await axios.post(`${process.env.WR_API_URL}/order/detail`, {
+                api_key: process.env.WR_API_KEY,
+                order_id: order_id
+            }, { timeout: 10000 });
+
+            return res.json({
+                success: true,
+                message: 'Raw WR API Response',
+                data: apiResponse.data,
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            logger.error(`debugWRApiResponse error for ${req.params.order_id}: ${error.message}`);
+            res.status(500).json({ 
+                success: false, 
+                message: 'Failed to fetch WR API response',
+                error: error.message,
+                errorCode: error.code,
+                errorStatus: error.response?.status
+            });
+        }
     }
 };
 

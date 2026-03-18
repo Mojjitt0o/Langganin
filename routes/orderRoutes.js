@@ -22,4 +22,7 @@ router.get('/:order_id/detail', authMiddleware.verifyToken, authMiddleware.isAdm
 router.patch('/:order_id/status', authMiddleware.verifyToken, authMiddleware.isAdmin, orderController.updateOrderStatus);
 router.patch('/:order_id/complete', authMiddleware.verifyToken, authMiddleware.isAdmin, orderController.completeOrder);
 
+// Admin: Debug - get raw WR API response for order
+router.get('/:order_id/debug/wr-api', authMiddleware.verifyToken, authMiddleware.isAdmin, orderController.debugWRApiResponse);
+
 module.exports = router;
