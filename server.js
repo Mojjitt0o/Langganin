@@ -260,19 +260,34 @@ app.listen(PORT, async () => {
     setInterval(async () => {
         try {
             // Get ALL orders (any status) that don't have account_details yet
-            // Admin will manage the status separately - we just auto-fetch details from WR
+            // Check both NULL and empty object/string cases
             const [orders] = await db.query(
-                `SELECT o.order_id, p.name as product_name, o.account_details FROM orders o
+                `SELECT o.order_id, o.status, p.name as product_name, o.account_details 
+                 FROM orders o
                  LEFT JOIN product_variants pv ON o.variant_id = pv.id
                  LEFT JOIN products p ON pv.product_id = p.id
-                 WHERE o.account_details IS NULL OR o.account_details::text = ''
+                 WHERE o.account_details IS NULL 
+                    OR o.account_details = 'null'::jsonb
+                    OR o.account_details = '{}'::jsonb
+                    OR (o.account_details::text = '{}' OR o.account_details::text = '')
                  LIMIT 10`
             );
 
-            if (!orders || orders.length === 0) return;
+            if (!orders || orders.length === 0) {
+                logger.debug(`[BG Task] No pending orders with missing account_details`);
+                return;
+            }
+
+            logger.info(`[BG Task] Found ${orders.length} orders pending account details`);
 
             // Filter in-memory to avoid JSON issues
-            const pendingOrders = orders.filter(o => !o.account_details || (typeof o.account_details === 'string' && o.account_details.trim() === ''));
+            const pendingOrders = orders.filter(o => {
+                if (!o.account_details) return true;
+                const str = typeof o.account_details === 'string' ? o.account_details : JSON.stringify(o.account_details);
+                return str === '{}' || str === '' || str === '[]' || str === 'null';
+            });
+
+            logger.info(`[BG Task] ${pendingOrders.length} orders need account detail fetching`);
 
             // Try to fetch from WR API for each pending order
             for (const order of pendingOrders) {
@@ -285,25 +300,20 @@ app.listen(PORT, async () => {
                 }
 
                 try {
+                    logger.info(`[BG Task] 🔄 Fetching account details for ${orderId} (status: ${order.status})...`);
+                    
                     // Fetch from WR API
                     const accountDetails = await Order.fetchAccountDetailsFromWR(orderId);
                     
                     if (accountDetails) {
-                        // Save details first
-                        logger.info(`💾 [BG Task] Saving account details for ${orderId}`);
-                        await Order.setAccountDetails(orderId, accountDetails);
+                        logger.info(`[BG Task] 💾 Saving account details for ${orderId}`);
                         
-                        // Auto-update status to completed
-                        logger.info(`📤 [BG Task] Updating order status to 'completed' for ${orderId}`);
-                        await db.query(
-                            `UPDATE orders SET status = 'completed', updated_at = CURRENT_TIMESTAMP
-                             WHERE order_id = $1`,
-                            [orderId]
-                        );
+                        // Save account details (updates status to 'done' and notifies admin via Telegram)
+                        await Order.completeOrder(orderId, accountDetails, order);
 
-                        logger.info(`🔄 [BG Task] ✅ Order ${orderId}: Details fetched & status → completed`);
+                        logger.info(`[BG Task] ✅ Order ${orderId}: Details fetched & saved`);
                         
-                        // Format details for admin notification
+                        // Format details for display
                         let detailsText = '';
                         if (typeof accountDetails === 'object') {
                             Object.entries(accountDetails).forEach(([key, value]) => {
@@ -313,29 +323,35 @@ app.listen(PORT, async () => {
                             detailsText = String(accountDetails);
                         }
                         
-                        // Notify admin with full details
-                        telegramBot.logEvent(
-                            '✅ Account Details Auto-Completed',
-                            `Order ID: ${orderId}\nProduct: ${order.product_name || '-'}\n\n📋 Details:\n${detailsText}\n\n✅ Status: Completed\n📱 User akan lihat di menu Pesanan`
-                        );
+                        // Log to Telegram (Telegram logging also done in completeOrder)
+                        // Just note it's ready for user to see
                     } else {
                         logger.debug(`[BG Task] ℹ️ ${orderId}: WR API still hasn't provided account details`);
                     }
 
                 } catch (err) {
-                    logger.debug(`[BG Task] Fetch pending for ${orderId}: ${err.message?.substring(0, 100) || err}`);
+                    logger.error(`[BG Task] Error fetching details for ${orderId}: ${err.message}`);
+                    telegramBot.logEvent(
+                        'BG Task Fetch Error',
+                        `Order ID: ${orderId}\nError: ${err.message}`
+                    );
                 } finally {
                     // Always release lock
                     lockManager.releaseLock(orderId);
                 }
             }
         } catch (err) {
-            logger.debug(`[BG Task] Error checking pending orders: ${err.message}`);
+            logger.error(`[BG Task] Error in background loop: ${err.message}`);
+            telegramBot.logEvent(
+                'BG Task Fatal Error',
+                `Error: ${err.message}\nStack: ${err.stack?.substring(0, 300)}`
+            );
         }
     }, 20000); // Check every 20 seconds
 
-    logger.info(`⏱️  Background auto-fetch task started (every 20 seconds)`);
-    logger.info(`📋 Task: Auto-fetch account details from WR API for ALL orders`);
-    logger.info(`✅ Auto-complete order status when details received`);
-    logger.info(`📤 Auto-send account details to user (Telegram notification)`);
+    logger.info(`⏱️  [BG Task] Started background auto-fetch task (every 20 seconds)`);
+    logger.info(`📋 [BG Task] Task: Auto-fetch account details from WR API for orders with missing details`);
+    logger.info(`✅ [BG Task] Auto-complete order status when details received`);
+    logger.info(`� [BG Task] Lock timeout: 180 seconds (covers fetch + 10 retries at 15s each + buffer)`);
+    logger.info(`🔧 [BG Task] Race-condition safe: IIFE, background task, and webhook all use lockManager`);
 });

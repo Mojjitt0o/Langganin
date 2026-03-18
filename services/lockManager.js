@@ -1,7 +1,9 @@
 // services/lockManager.js - Prevent race conditions for order processing
+// Used by: webhook handler, background task, and IIFE in Order.create()
 
 const locks = new Map(); // { orderId: { startTime, timeoutId } }
-const LOCK_TIMEOUT = 30000; // 30 seconds
+const LOCK_TIMEOUT = 180000; // 180 seconds (3 minutes) - must be longer than max fetch + retry
+// Note: WR API fetch + retry (10×15s) = max ~150s, need buffer for processing time
 
 module.exports = {
     // Acquire lock for an order

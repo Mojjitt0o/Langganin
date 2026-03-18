@@ -170,24 +170,32 @@ const orderController = {
     async getAccountDetails(req, res) {
         try {
             const { order_id } = req.params;
+            logger.debug(`[getAccountDetails] Fetching for order ${order_id}, user_id=${req.userId}, admin=${req.isAdmin}`);
             
             const order = await Order.getOrderById(order_id);
             if (!order) {
+                logger.warn(`[getAccountDetails] Order ${order_id} not found`);
                 return res.status(404).json({ success: false, message: 'Order tidak ditemukan' });
             }
 
             // Check if user owns this order (unless admin)
             if (!req.isAdmin && order.user_id !== req.userId) {
+                logger.warn(`[getAccountDetails] Access denied for user ${req.userId} to order ${order_id}`);
                 return res.status(403).json({ success: false, message: 'Akses ditolak' });
             }
 
             // If account details already exist, return them
             if (order.account_details) {
                 logger.info(`✅ Account details found in DB for ${order_id}`);
-                const details = typeof order.account_details === 'string' 
-                    ? JSON.parse(order.account_details) 
-                    : order.account_details;
-                return res.json({ success: true, data: details });
+                try {
+                    const details = typeof order.account_details === 'string' 
+                        ? JSON.parse(order.account_details) 
+                        : order.account_details;
+                    return res.json({ success: true, data: details });
+                } catch (parseErr) {
+                    logger.error(`[getAccountDetails] JSON parse error for ${order_id}: ${parseErr.message}`);
+                    return res.json({ success: true, data: order.account_details });
+                }
             }
 
             // Otherwise, try to fetch from WR API
@@ -205,6 +213,7 @@ const orderController = {
             res.json({ success: false, message: 'Detail akun belum tersedia', data: null });
         } catch (error) {
             logger.error('getAccountDetails error: ' + error.message);
+            logger.error('getAccountDetails stack: ' + error.stack);
             res.status(500).json({ success: false, message: 'Gagal mengambil detail akun.' });
         }
     },

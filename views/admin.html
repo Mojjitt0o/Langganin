@@ -1411,8 +1411,32 @@
         if (o.account_details) {
             try {
                 const ad = typeof o.account_details === 'string' ? JSON.parse(o.account_details) : o.account_details;
-                const lines = Object.entries(ad).map(([k, v]) => `• *${k}:* ${v}`);
-                akun = '\n\n' + t('adm_wa_account_title') + '\n' + lines.join('\n');
+                
+                // Handle array format (WR)
+                if (Array.isArray(ad)) {
+                  let details = '';
+                  ad.forEach(item => {
+                    if (item.product) details += `\n*${item.product}*\n`;
+                    if (item.details && Array.isArray(item.details)) {
+                      item.details.forEach(detail => {
+                        if (detail.title) details += `\n📱 ${detail.title}\n`;
+                        if (detail.credentials && Array.isArray(detail.credentials)) {
+                          detail.credentials.forEach(cred => {
+                            if (cred.label && cred.value) {
+                              details += `• *${cred.label}:* ${cred.value}\n`;
+                            }
+                          });
+                        }
+                      });
+                    }
+                  });
+                  akun = '\n\n' + t('adm_wa_account_title') + details;
+                }
+                // Handle object format (legacy)
+                else {
+                  const lines = Object.entries(ad).map(([k, v]) => `• *${k}:* ${v}`);
+                  akun = '\n\n' + t('adm_wa_account_title') + '\n' + lines.join('\n');
+                }
             } catch { akun = '\n\n' + t('adm_wa_detail_fallback') + String(o.account_details); }
         }
 
@@ -1441,9 +1465,98 @@ ${t('adm_wa_thanks')}`;
     function viewAccountDetails(orderId) {
         const o = allAdminOrders.find(x => x.order_id === orderId);
         if (!o || !o.account_details) return;
-        const ad = typeof o.account_details === 'string' ? JSON.parse(o.account_details) : o.account_details;
-        const lines = Object.entries(ad).map(([k, v]) => `${k}: ${v}`).join('\n');
-        alert(`${t('adm_info_akun')} — ${o.order_id}\n\n${lines}`);
+        
+        try {
+            const ad = typeof o.account_details === 'string' ? JSON.parse(o.account_details) : o.account_details;
+            let details = '';
+            
+            // Handle array format (WR)
+            if (Array.isArray(ad)) {
+              ad.forEach(item => {
+                if (item.product) details += `\n📦 ${item.product}\n`;
+                if (item.details && Array.isArray(item.details)) {
+                  item.details.forEach(detail => {
+                    if (detail.title) details += `\n👤 ${detail.title}\n`;
+                    if (detail.credentials && Array.isArray(detail.credentials)) {
+                      detail.credentials.forEach(cred => {
+                        if (cred.label && cred.value) {
+                          details += `• ${cred.label}: ${cred.value}\n`;
+                        }
+                      });
+                    }
+                  });
+                }
+              });
+            }
+            // Handle object format (legacy)
+            else {
+              const lines = Object.entries(ad).map(([k, v]) => `${k}: ${v}`).join('\n');
+              details = '\n' + lines;
+            }
+            
+            alert(`${t('adm_info_akun')} — ${o.order_id}${details}`);
+        } catch(e) {
+            alert(`${t('adm_info_akun')} — ${o.order_id}\n\n${String(o.account_details)}`);
+        }
+    }
+
+    // ===== FORMAT ACCOUNT DETAILS (Handle Array + Object) =====
+    function formatAccountDetails(adRaw) {
+      /**
+       * Format account details untuk tampil di UI
+       * Handle 2 format:
+       * 1. Old format (object): {"Email": "...", "Password": "..."}
+       * 2. WR format (array): [{product: "...", details: [{title: "Akun 1", credentials: [...]}]}]
+       */
+      if (!adRaw) return '';
+      
+      try {
+        const ad = typeof adRaw === 'string' ? JSON.parse(adRaw) : adRaw;
+        
+        // ===== Handle Array Format (WR API) =====
+        if (Array.isArray(ad)) {
+          let html = '';
+          ad.forEach(item => {
+            // Product name
+            if (item.product) {
+              html += `<div style="padding:0.5rem 0.75rem; background:rgba(22,163,74,0.05); font-weight:700; font-size:0.85rem; color:var(--green); border-bottom:1px solid rgba(22,163,74,0.15);">📦 ${escHtml(item.product)}</div>`;
+            }
+            // Details
+            if (item.details && Array.isArray(item.details)) {
+              item.details.forEach(detail => {
+                if (detail.title) {
+                  html += `<div style="padding:0.5rem 0.75rem; background:rgba(22,163,74,0.02); font-weight:600; font-size:0.83rem; color:var(--green); border-bottom:1px solid rgba(22,163,74,0.15);">👤 ${escHtml(detail.title)}</div>`;
+                }
+                if (detail.credentials && Array.isArray(detail.credentials)) {
+                  detail.credentials.forEach(cred => {
+                    if (cred.label && cred.value) {
+                      html += `<div style="display:flex; justify-content:space-between; padding:0.5rem 0.75rem; border-bottom:1px solid rgba(22,163,74,0.15);">
+                        <span style="color:var(--muted); font-size:0.82rem;">${escHtml(cred.label)}</span>
+                        <span style="font-weight:600; color:var(--green); font-size:0.88rem; font-family:monospace; word-break:break-all;">${escHtml(String(cred.value))}</span>
+                      </div>`;
+                    }
+                  });
+                }
+              });
+            }
+          });
+          return html;
+        }
+        
+        // ===== Handle Object Format (Legacy) =====
+        if (typeof ad === 'object' && ad !== null) {
+          const entries = Object.entries(ad).map(([k, v]) =>
+            `<div style="display:flex; justify-content:space-between; padding:0.5rem 0.75rem; border-bottom:1px solid rgba(22,163,74,0.15);">
+              <span style="color:var(--muted); font-size:0.82rem;">${escHtml(k)}</span>
+              <span style="font-weight:600; color:var(--green); font-size:0.88rem; font-family:monospace; word-break:break-all;">${escHtml(String(v))}</span>
+            </div>`
+          ).join('');
+          return entries;
+        }
+      } catch(e) {
+        return `<div style="color:rgba(239,68,68,0.7);">Gagal parse tgl</div>`;
+      }
+      return '';
     }
 
     // ===== UTILS =====

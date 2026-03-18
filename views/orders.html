@@ -436,8 +436,32 @@
     if (o.account_details) {
       try {
         const ad = typeof o.account_details === 'string' ? JSON.parse(o.account_details) : o.account_details;
-        const lines = Object.entries(ad).map(([k, v]) => `• ${k}: ${v}`);
-        akun = '\n\n' + t('ord_wa_account') + '\n' + lines.join('\n');
+        
+        // Handle array format (WR)
+        if (Array.isArray(ad)) {
+          let details = '';
+          ad.forEach(item => {
+            if (item.product) details += `\n${item.product}\n`;
+            if (item.details && Array.isArray(item.details)) {
+              item.details.forEach(detail => {
+                if (detail.title) details += `\n📱 ${detail.title}\n`;
+                if (detail.credentials && Array.isArray(detail.credentials)) {
+                  detail.credentials.forEach(cred => {
+                    if (cred.label && cred.value) {
+                      details += `• ${cred.label}: ${cred.value}\n`;
+                    }
+                  });
+                }
+              });
+            }
+          });
+          akun = '\n\n' + t('ord_wa_account') + details;
+        }
+        // Handle object format (legacy)
+        else {
+          const lines = Object.entries(ad).map(([k, v]) => `• ${k}: ${v}`);
+          akun = '\n\n' + t('ord_wa_account') + '\n' + lines.join('\n');
+        }
       } catch { akun = '\n\n📋 Detail: ' + String(o.account_details); }
     }
 
@@ -483,22 +507,12 @@ ${t('ord_wa_thanks')}`;
     // Account details display
     let accountHtml = '';
     if (hasAccount) {
-      try {
-        const ad = typeof o.account_details === 'string' ? JSON.parse(o.account_details) : o.account_details;
-        const entries = Object.entries(ad).map(([k, v]) =>
-          `<div style="display:flex; justify-content:space-between; padding:0.5rem 0.75rem; border-bottom:1px solid rgba(22,163,74,0.15);">
-            <span style="color:var(--muted); font-size:0.82rem;">${esc(k)}</span>
-            <span style="font-weight:600; color:var(--green); font-size:0.88rem; font-family:monospace; word-break:break-all;">${esc(String(v))}</span>
-          </div>`
-        ).join('');
-        accountHtml = `
-          <div style="background:rgba(22,163,74,0.08); border:1.5px solid rgba(22,163,74,0.25); border-radius:10px; margin-top:0.75rem; overflow:hidden;">
-            <div style="padding:0.6rem 0.75rem; background:rgba(22,163,74,0.12); font-weight:700; font-size:0.85rem; color:var(--green);">${t('ord_account_title')}</div>
-            ${entries}
-          </div>`;
-      } catch {
-        accountHtml = `<div style="margin-top:0.75rem; padding:0.75rem; background:rgba(22,163,74,0.08); border:1px solid rgba(22,163,74,0.2); border-radius:8px; color:var(--green); font-size:0.85rem;">${esc(String(o.account_details))}</div>`;
-      }
+      const formattedHtml = formatAccountDetails(o.account_details);
+      accountHtml = `
+        <div style="background:rgba(22,163,74,0.08); border:1.5px solid rgba(22,163,74,0.25); border-radius:10px; margin-top:0.75rem; overflow:hidden;">
+          <div style="padding:0.6rem 0.75rem; background:rgba(22,163,74,0.12); font-weight:700; font-size:0.85rem; color:var(--green);">${t('ord_account_title')}</div>
+          ${formattedHtml}
+        </div>`;
     }
 
     // Processing notice for non-admin users
@@ -550,6 +564,62 @@ ${t('ord_wa_thanks')}`;
 
   function formatDate(dt) {
     return new Date(dt).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  }
+
+  function formatAccountDetails(adRaw) {
+    /**
+     * Format account details untuk tampil di UI
+     * Handle 2 format:
+     * 1. Old format (object): {"Email": "...", "Password": "..."}
+     * 2. WR format (array): [{product: "...", details: [{title: "Akun 1", credentials: [...]}]}]
+     */
+    if (!adRaw) return '';
+    
+    const ad = typeof adRaw === 'string' ? JSON.parse(adRaw) : adRaw;
+    
+    // ===== Handle Array Format (WR API) =====
+    if (Array.isArray(ad)) {
+      let html = '';
+      ad.forEach(item => {
+        // Product name
+        if (item.product) {
+          html += `<div style="padding:0.5rem 0.75rem; background:rgba(22,163,74,0.05); font-weight:700; font-size:0.85rem; color:var(--green); border-bottom:1px solid rgba(22,163,74,0.15);">📦 ${esc(item.product)}</div>`;
+        }
+        // Details
+        if (item.details && Array.isArray(item.details)) {
+          item.details.forEach(detail => {
+            if (detail.title) {
+              html += `<div style="padding:0.5rem 0.75rem; background:rgba(22,163,74,0.02); font-weight:600; font-size:0.83rem; color:var(--green); border-bottom:1px solid rgba(22,163,74,0.15);">👤 ${esc(detail.title)}</div>`;
+            }
+            if (detail.credentials && Array.isArray(detail.credentials)) {
+              detail.credentials.forEach(cred => {
+                if (cred.label && cred.value) {
+                  html += `<div style="display:flex; justify-content:space-between; padding:0.5rem 0.75rem; border-bottom:1px solid rgba(22,163,74,0.15);">
+                    <span style="color:var(--muted); font-size:0.82rem;">${esc(cred.label)}</span>
+                    <span style="font-weight:600; color:var(--green); font-size:0.88rem; font-family:monospace; word-break:break-all;">${esc(String(cred.value))}</span>
+                  </div>`;
+                }
+              });
+            }
+          });
+        }
+      });
+      return html;
+    }
+    
+    // ===== Handle Object Format (Legacy) =====
+    if (typeof ad === 'object' && ad !== null) {
+      const entries = Object.entries(ad).map(([k, v]) =>
+        `<div style="display:flex; justify-content:space-between; padding:0.5rem 0.75rem; border-bottom:1px solid rgba(22,163,74,0.15);">
+          <span style="color:var(--muted); font-size:0.82rem;">${esc(k)}</span>
+          <span style="font-weight:600; color:var(--green); font-size:0.88rem; font-family:monospace; word-break:break-all;">${esc(String(v))}</span>
+        </div>`
+      ).join('');
+      return entries;
+    }
+    
+    // Fallback
+    return `<div style="padding:0.5rem 0.75rem; color:var(--green);">${esc(String(ad))}</div>`;
   }
 
   function show(id) { const el = document.getElementById(id); if (el) el.style.display = ''; }
