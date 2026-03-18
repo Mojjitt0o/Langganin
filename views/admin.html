@@ -1504,9 +1504,10 @@ ${t('adm_wa_thanks')}`;
     function formatAccountDetails(adRaw) {
       /**
        * Format account details untuk tampil di UI
-       * Handle 2 format:
-       * 1. Old format (object): {"Email": "...", "Password": "..."}
-       * 2. WR format (array): [{product: "...", details: [{title: "Akun 1", credentials: [...]}]}]
+       * Handle 3 format:
+       * 1. WR format aktual: {product: "...", details: [{label: "Email", value: "..."}, ...]}
+       * 2. WR format docs: {product: "...", details: [{title: "Akun 1", credentials: [{label: "...", value: "..."}]}]}
+       * 3. Legacy object: {"Email": "...", "Password": "..."}
        */
       if (!adRaw) return '';
       
@@ -1524,10 +1525,9 @@ ${t('adm_wa_thanks')}`;
             // Details
             if (item.details && Array.isArray(item.details)) {
               item.details.forEach(detail => {
-                if (detail.title) {
+                // Format A: Nested credentials with title (WR documentation)
+                if (detail.title && detail.credentials && Array.isArray(detail.credentials)) {
                   html += `<div style="padding:0.5rem 0.75rem; background:rgba(22,163,74,0.02); font-weight:600; font-size:0.83rem; color:var(--green); border-bottom:1px solid rgba(22,163,74,0.15);">👤 ${escHtml(detail.title)}</div>`;
-                }
-                if (detail.credentials && Array.isArray(detail.credentials)) {
                   detail.credentials.forEach(cred => {
                     if (cred.label && cred.value) {
                       html += `<div style="display:flex; justify-content:space-between; padding:0.5rem 0.75rem; border-bottom:1px solid rgba(22,163,74,0.15);">
@@ -1536,6 +1536,13 @@ ${t('adm_wa_thanks')}`;
                       </div>`;
                     }
                   });
+                }
+                // Format B: Direct label/value (WR actual format)
+                else if (detail.label && detail.value && !detail.title) {
+                  html += `<div style="display:flex; justify-content:space-between; padding:0.5rem 0.75rem; border-bottom:1px solid rgba(22,163,74,0.15);">
+                    <span style="color:var(--muted); font-size:0.82rem;">${escHtml(detail.label)}</span>
+                    <span style="font-weight:600; color:var(--green); font-size:0.88rem; font-family:monospace; word-break:break-all;">${escHtml(String(detail.value))}</span>
+                  </div>`;
                 }
               });
             }
@@ -1554,7 +1561,7 @@ ${t('adm_wa_thanks')}`;
           return entries;
         }
       } catch(e) {
-        return `<div style="color:rgba(239,68,68,0.7);">Gagal parse tgl</div>`;
+        return `<div style="color:rgba(239,68,68,0.7);">Gagal parse detail</div>`;
       }
       return '';
     }
