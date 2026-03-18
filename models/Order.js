@@ -348,18 +348,24 @@ class Order {
 
         logger.debug(`Webhook update: order=${order_id}, status=${status}, hasDetails=${!!account_details}`);
 
-        // Update status
-        await db.query(
-            'UPDATE orders SET status = $1 WHERE order_id = $2',
-            [status, order_id]
-        );
-
-        // If account_details provided in webhook payload, save them directly
+        // Handle account_details in webhook payload first (atomic update)
         if (account_details && typeof account_details === 'object' && Object.keys(account_details).length > 0) {
-            logger.info(`✅ Webhook provided account details for ${order_id}, saving directly`);
-            await Order.setAccountDetails(order_id, account_details);
+            logger.info(`✅ Webhook provided account details for ${order_id}, saving atomically with status update`);
+            // Atomic: update both status and account_details in one query
+            await db.query(
+                'UPDATE orders SET status = $1, account_details = $2, updated_at = CURRENT_TIMESTAMP WHERE order_id = $3',
+                [status, JSON.stringify(account_details), order_id]
+            );
             return;
         }
+
+        // If no account_details in webhook, just update status
+        // But check if order not already processing by background task or another webhook
+        logger.info(`Updating status for ${order_id} to ${status}`);
+        await db.query(
+            'UPDATE orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE order_id = $2',
+            [status, order_id]
+        );
 
         // If order is marked done/complete, try fetching account details immediately
         if (['success', 'completed', 'done'].includes(status)) {

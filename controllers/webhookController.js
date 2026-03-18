@@ -2,6 +2,7 @@
 const Order = require('../models/Order');
 const crypto = require('crypto');
 const logger = require('../services/logger');
+const lockManager = require('../services/lockManager');
 
 const webhookController = {
     async handleWebhook(req, res) {
@@ -71,19 +72,41 @@ const webhookController = {
             }
 
             const { event, data: webhookData } = data;
-            logger.info(`🔄 Processing webhook: event=${event}, order=${webhookData?.order_id}`);
+            const orderId = webhookData?.order_id;
             
-            await Order.updateFromWebhook(event, webhookData);
-
-            logger.info(`✅ Order updated: ${webhookData?.order_id}`);
+            logger.info(`🔄 Processing webhook: event=${event}, order=${orderId}`);
             
-            const telegramBot = require('../services/telegramBot');
-            telegramBot.logEvent(
-              '✅ WR Webhook Received',
-              `Event: ${event}\nOrder ID: ${webhookData?.order_id}\nStatus: ${webhookData?.status || 'N/A'}\nHas Details: ${!!webhookData?.account_details}`
-            );
+            // Race condition prevention: Check if background task is processing this order
+            if (lockManager.isLocked(orderId)) {
+                logger.warn(`⚠️ Order ${orderId} is being processed by background task, webhook will wait...`);
+                // Return success so WR doesn't retry, but don't process
+                // Background task will handle it
+                return res.json({ success: true, message: 'Order already being processed, skipped' });
+            }
 
-            res.json({ success: true, message: 'Webhook processed successfully' });
+            // Try to acquire lock for this order
+            if (!lockManager.acquireLock(orderId)) {
+                logger.info(`ℹ️ Order ${orderId} already processing, skipping...`);
+                return res.json({ success: true, message: 'Order already being processed' });
+            }
+
+            try {
+                await Order.updateFromWebhook(event, webhookData);
+
+                logger.info(`✅ Order updated: ${orderId}`);
+                
+                const telegramBot = require('../services/telegramBot');
+                telegramBot.logEvent(
+                  '✅ WR Webhook Received',
+                  `Event: ${event}\nOrder ID: ${orderId}\nStatus: ${webhookData?.status || 'N/A'}\nHas Details: ${!!webhookData?.account_details}`
+                );
+
+                res.json({ success: true, message: 'Webhook processed successfully' });
+            } finally {
+                // Always release lock
+                lockManager.releaseLock(orderId);
+            }
+
         } catch (error) {
             logger.error('❌ Webhook error: ' + error.message);
             logger.error(error.stack);

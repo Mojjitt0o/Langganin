@@ -255,6 +255,7 @@ app.listen(PORT, async () => {
     // ── BACKGROUND TASK: Auto-fetch WR account details for pending orders ──────
     const Order = require('./models/Order');
     const db = require('./config/database');
+    const lockManager = require('./services/lockManager');
 
     setInterval(async () => {
         try {
@@ -273,36 +274,58 @@ app.listen(PORT, async () => {
 
             // Try to fetch from WR API for each pending order
             for (const order of orders) {
+                const orderId = order.order_id;
+
+                // Try to acquire lock (skip if already processing)
+                if (!lockManager.acquireLock(orderId)) {
+                    logger.debug(`[BG Task] ⏳ ${orderId}: Already fetching, skip...`);
+                    continue;
+                }
+
                 try {
-                    const accountDetails = await Order.fetchAccountDetailsFromWR(order.order_id);
+                    // Fetch from WR API
+                    const accountDetails = await Order.fetchAccountDetailsFromWR(orderId);
                     
                     if (accountDetails) {
-                        // Save account details
-                        await Order.setAccountDetails(order.order_id, accountDetails);
-                        
-                        // Update status to completed
+                        // Atomic update: set account details AND status in one operation
                         await new Promise((resolve, reject) => {
+                            const details = typeof accountDetails === 'string' 
+                                ? accountDetails 
+                                : JSON.stringify(accountDetails);
+                            
                             db.run(
-                                'UPDATE orders SET status = ? WHERE order_id = ?',
-                                ['completed', order.order_id],
+                                `UPDATE orders 
+                                 SET account_details = ?, status = 'completed', updated_at = CURRENT_TIMESTAMP
+                                 WHERE order_id = ? AND status = 'processing' AND (account_details IS NULL OR account_details = '')`,
+                                [details, orderId],
                                 function(err) {
-                                    if (err) reject(err);
-                                    else resolve();
+                                    if (err) {
+                                        reject(err);
+                                    } else if (this.changes === 0) {
+                                        // No rows updated (already completed by webhook/other process)
+                                        logger.debug(`[BG Task] ℹ️ ${orderId}: Already completed, skipping...`);
+                                        resolve();
+                                    } else {
+                                        resolve();
+                                    }
                                 }
                             );
                         });
 
-                        logger.info(`🔄 [BG Task] ✅ Order ${order.order_id}: Details fetched & status → completed`);
+                        logger.info(`🔄 [BG Task] ✅ Order ${orderId}: Details fetched & status → completed`);
                         
                         // Notify admin
                         telegramBot.logEvent(
                             '✅ Order Auto-Completed',
-                            `Order ID: ${order.order_id}\nProduct: ${order.product_name || '-'}\nAccount details fetched from WR API`
+                            `Order ID: ${orderId}\nProduct: ${order.product_name || '-'}\nAccount details fetched from WR API`
                         );
                     }
+
                 } catch (err) {
-                    // Silently continue — will retry on next interval
-                    logger.debug(`[BG Task] Fetch pending for ${order.order_id}: ${err.message?.substring(0, 50)}`);
+                    logger.debug(`[BG Task] Fetch pending for ${orderId}: ${err.message?.substring(0, 50)}`);
+                } finally {
+                    // Always release lock
+                    lockManager.releaseLock(orderId);
                 }
             }
         } catch (err) {
@@ -310,5 +333,7 @@ app.listen(PORT, async () => {
         }
     }, 20000); // Check every 20 seconds
 
-    logger.info(`⏱️  Background auto-fetch task started (every 20 seconds)`);
+    logger.info(`⏱️  Background auto-fetch task started (every 20 seconds, race-condition safe)`);
+});
+});
 });
