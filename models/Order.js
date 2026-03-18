@@ -192,11 +192,8 @@ class Order {
                 order_id: orderId
             }, { timeout: 10000 });
 
-            // Log full response for debugging
-            logger.debug(`[WR API Raw] ${orderId}: Status=${apiResponse.data?.success}, Message=${apiResponse.data?.message}`);
-            if (apiResponse.data?.data) {
-                logger.debug(`[WR API Data] ${orderId}: ${JSON.stringify(apiResponse.data.data).substring(0, 800)}`);
-            }
+            // Log FULL response regardless of success
+            logger.info(`[WR API Response] Order=${orderId}: ${JSON.stringify(apiResponse.data).substring(0, 1000)}`);
 
             if (!apiResponse.data || !apiResponse.data.success) {
                 const msg = apiResponse.data?.message || 'Unknown error';
