@@ -114,6 +114,7 @@ const authController = {
                 success: true,
                 message: 'Login successful',
                 data: {
+                    token: token,
                     user: {
                         id:       user.id,
                         username: user.username,
