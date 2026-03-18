@@ -192,6 +192,12 @@ class Order {
                 order_id: orderId
             }, { timeout: 10000 });
 
+            // Log full response for debugging
+            logger.debug(`[WR API Raw] ${orderId}: Status=${apiResponse.data?.success}, Message=${apiResponse.data?.message}`);
+            if (apiResponse.data?.data) {
+                logger.debug(`[WR API Data] ${orderId}: ${JSON.stringify(apiResponse.data.data).substring(0, 800)}`);
+            }
+
             if (!apiResponse.data || !apiResponse.data.success) {
                 const msg = apiResponse.data?.message || 'Unknown error';
                 logger.debug(`WR API order detail not ready for ${orderId}: ${msg}`);
@@ -199,6 +205,7 @@ class Order {
             }
 
             const orderData = apiResponse.data.data;
+            logger.info(`[WR API ✅] ${orderId}: account_details exists = ${!!orderData?.account_details}`);
             logger.debug(`WR API response for ${orderId}:`, JSON.stringify(orderData?.account_details || {}).substring(0, 500));
             
             // Transform WR API account_details format to the format we use
