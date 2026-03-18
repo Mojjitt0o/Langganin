@@ -32,9 +32,16 @@ async function sendMessage(chatId, text, options = {}) {
       parse_mode: 'HTML',
       ...options
     });
+    
+    if (!res.data.ok) {
+      logger.warn(`[TelegramBot] sendMessage failed: ${res.data.description} (to chat ${chatId})`);
+      return null;
+    }
+    
     return res.data;
   } catch (err) {
-    logger.error('[TelegramBot] sendMessage error: ' + (err.response?.data?.description || err.message));
+    const errMsg = err.response?.data?.description || err.message;
+    logger.error(`[TelegramBot] sendMessage error: ${errMsg} (chat: ${chatId})`);
     return null;
   }
 }
@@ -303,11 +310,26 @@ async function logEvent(title, details) {
     logger.warn('[TelegramBot] Failed to save log to DB: ' + err.message);
   }
 
-  if (!ADMIN_CHAT_ID) return null;
+  if (!ADMIN_CHAT_ID) {
+    logger.warn('[TelegramBot] logEvent called but ADMIN_CHAT_ID not set');
+    return null;
+  }
+  
+  logger.info(`[TelegramBot] logEvent triggered: "${title}" (to chat ${ADMIN_CHAT_ID})`);
+  
   const text =
     `📝 <b>${escapeHtml(title)}</b>\n\n` +
     `${escapeHtml(details)}`;
-  return sendMessage(ADMIN_CHAT_ID, text, { disable_web_page_preview: true });
+  
+  const result = await sendMessage(ADMIN_CHAT_ID, text, { disable_web_page_preview: true });
+  
+  if (result) {
+    logger.info(`[TelegramBot] logEvent sent successfully (msg_id: ${result.result?.message_id})`);
+  } else {
+    logger.warn(`[TelegramBot] logEvent failed to send`);
+  }
+  
+  return result;
 }
 
 // Called by authController after successful password reset
