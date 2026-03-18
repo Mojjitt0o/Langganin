@@ -259,27 +259,22 @@ app.listen(PORT, async () => {
 
     setInterval(async () => {
         try {
-            // Get all processing orders without account details (using PostgreSQL query API)
-            // Use try-catch here to log better errors
-            let orders;
-            try {
-                const [result] = await db.query(
-                    `SELECT o.order_id, p.name as product_name FROM orders o
-                     LEFT JOIN product_variants pv ON o.variant_id = pv.id
-                     LEFT JOIN products p ON pv.product_id = p.id
-                     WHERE o.status = 'processing' AND (o.account_details IS NULL OR TRIM(CAST(o.account_details as varchar)) = '')
-                     LIMIT 10`
-                );
-                orders = result;
-            } catch (queryErr) {
-                logger.warn(`[BG Task] Query error (retrying next cycle): ${queryErr.message}`);
-                return; // Skip this cycle, will retry next time
-            }
+            // Get all processing orders (don't check account_details in query to avoid JSON errors)
+            const [orders] = await db.query(
+                `SELECT o.order_id, p.name as product_name, o.account_details FROM orders o
+                 LEFT JOIN product_variants pv ON o.variant_id = pv.id
+                 LEFT JOIN products p ON pv.product_id = p.id
+                 WHERE o.status = 'processing'
+                 LIMIT 10`
+            );
 
             if (!orders || orders.length === 0) return;
 
+            // Filter in-memory to avoid JSON issues
+            const pendingOrders = orders.filter(o => !o.account_details || o.account_details.trim() === '');
+
             // Try to fetch from WR API for each pending order
-            for (const order of orders) {
+            for (const order of pendingOrders) {
                 const orderId = order.order_id;
 
                 // Try to acquire lock (skip if already processing)
