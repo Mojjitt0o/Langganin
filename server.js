@@ -259,18 +259,14 @@ app.listen(PORT, async () => {
 
     setInterval(async () => {
         try {
-            // Get all processing orders without account details
-            const orders = await new Promise((resolve, reject) => {
-                db.all(
-                    `SELECT order_id, product_name FROM orders 
-                     WHERE status = 'processing' AND (account_details IS NULL OR account_details = '')
-                     LIMIT 10`,
-                    (err, rows) => {
-                        if (err) reject(err);
-                        else resolve(rows || []);
-                    }
-                );
-            });
+            // Get all processing orders without account details (using PostgreSQL query API)
+            const [orders] = await db.query(
+                `SELECT order_id, product_name FROM orders 
+                 WHERE status = 'processing' AND (account_details IS NULL OR account_details = '')
+                 LIMIT 10`
+            );
+
+            if (!orders || orders.length === 0) return;
 
             // Try to fetch from WR API for each pending order
             for (const order of orders) {
@@ -288,37 +284,28 @@ app.listen(PORT, async () => {
                     
                     if (accountDetails) {
                         // Atomic update: set account details AND status in one operation
-                        await new Promise((resolve, reject) => {
-                            const details = typeof accountDetails === 'string' 
-                                ? accountDetails 
-                                : JSON.stringify(accountDetails);
-                            
-                            db.run(
-                                `UPDATE orders 
-                                 SET account_details = ?, status = 'completed', updated_at = CURRENT_TIMESTAMP
-                                 WHERE order_id = ? AND status = 'processing' AND (account_details IS NULL OR account_details = '')`,
-                                [details, orderId],
-                                function(err) {
-                                    if (err) {
-                                        reject(err);
-                                    } else if (this.changes === 0) {
-                                        // No rows updated (already completed by webhook/other process)
-                                        logger.debug(`[BG Task] ℹ️ ${orderId}: Already completed, skipping...`);
-                                        resolve();
-                                    } else {
-                                        resolve();
-                                    }
-                                }
-                            );
-                        });
-
-                        logger.info(`🔄 [BG Task] ✅ Order ${orderId}: Details fetched & status → completed`);
+                        const details = typeof accountDetails === 'string' 
+                            ? accountDetails 
+                            : JSON.stringify(accountDetails);
                         
-                        // Notify admin
-                        telegramBot.logEvent(
-                            '✅ Order Auto-Completed',
-                            `Order ID: ${orderId}\nProduct: ${order.product_name || '-'}\nAccount details fetched from WR API`
+                        const [result] = await db.query(
+                            `UPDATE orders 
+                             SET account_details = $1, status = 'completed', updated_at = CURRENT_TIMESTAMP
+                             WHERE order_id = $2 AND status = 'processing' AND (account_details IS NULL OR account_details = '')`,
+                            [details, orderId]
                         );
+
+                        if (result && result.length > 0) {
+                            logger.info(`🔄 [BG Task] ✅ Order ${orderId}: Details fetched & status → completed`);
+                            
+                            // Notify admin
+                            telegramBot.logEvent(
+                                '✅ Order Auto-Completed',
+                                `Order ID: ${orderId}\nProduct: ${order.product_name || '-'}\nAccount details fetched from WR API`
+                            );
+                        } else {
+                            logger.debug(`[BG Task] ℹ️ ${orderId}: Already completed, skipping...`);
+                        }
                     }
 
                 } catch (err) {
@@ -334,6 +321,4 @@ app.listen(PORT, async () => {
     }, 20000); // Check every 20 seconds
 
     logger.info(`⏱️  Background auto-fetch task started (every 20 seconds, race-condition safe)`);
-});
-});
 });
