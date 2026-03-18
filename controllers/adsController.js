@@ -9,8 +9,12 @@ async function getAdSettings(req, res) {
     }
     res.json({
       title: ad.title,
-      content: ad.content,
       delay: ad.delay_after_announcement,
+      youtube_url: ad.youtube_url,
+      partnership_text: ad.partnership_text,
+      partnership_color: ad.partnership_color,
+      content_html: ad.content_html,
+      promo_link: ad.promo_link
     });
   } catch (err) {
     res.status(500).json({ message: 'Gagal mengambil pengaturan iklan.', error: err.message });

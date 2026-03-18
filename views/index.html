@@ -245,46 +245,49 @@
   </script>
   <!-- ADS MODAL -->
   <div class="ads-modal" id="adsModal" style="display:none; position:fixed; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.45); z-index:99999; align-items:center; justify-content:center;">
-    <div class="ads-box" style="background:#fff; max-width:420px; margin:auto; border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,0.18); padding:2.2rem 2rem 1.5rem 2rem; position:relative;">
-      <button id="adsClose" style="position:absolute; top:14px; right:14px; background:none; border:none; font-size:1.7rem; cursor:pointer; color:#888;">✕</button>
-      <div id="adsTitle" style="font-weight:700; font-size:1.3rem; margin-bottom:0.7rem; color:#222;"></div>
-      <div id="adsContent" style="margin-bottom:1.2rem; color:#444;"></div>
+    <div class="ads-box" style="background:#fff; max-width:480px; margin:auto; border-radius:18px; box-shadow:0 8px 32px rgba(0,0,0,0.18); padding:2.5rem 2rem 2rem 2rem; position:relative;">
+      <button id="adsClose" style="position:absolute; top:16px; right:16px; background:none; border:none; font-size:1.7rem; cursor:pointer; color:#888;">✕</button>
+      <div id="adsBanner" style="background:#2563eb; color:#fff; font-weight:700; border-radius:8px; padding:0.5em 1em; font-size:1.1rem; margin-bottom:1rem; display:flex; align-items:center; gap:0.5em;"><span style="font-size:1.3em;">🤝</span><span id="adsBannerText">BINGX PARTNERSHIP</span></div>
+      <div id="adsTitle" style="font-weight:700; font-size:1.35rem; margin-bottom:0.7rem; color:#2563eb; display:flex; align-items:center; gap:0.5em;"><span style="font-size:1.3em;">🔥</span><span></span></div>
+      <div id="adsYoutube" style="margin-bottom:1.2rem; display:none;"></div>
+      <div id="adsContentHtml" style="margin-bottom:1.2rem; color:#444;"></div>
       <a id="adsJoinBtn" href="#" target="_blank" rel="noopener" style="display:inline-block; background:#2563eb; color:#fff; font-weight:600; border-radius:8px; padding:0.7em 1.4em; font-size:1rem; text-decoration:none; margin-top:0.5rem; box-shadow:0 2px 8px rgba(37,99,235,0.08); transition:background 0.2s;">Join Sekarang 🚀</a>
     </div>
   </div>
   <script>
   // Tampilkan iklan setelah pengumuman ditutup
+
   let adsData = null;
   fetch('/api/ads/settings')
     .then(r => r.json())
     .then(data => {
-      if (data && data.title && data.content) {
+      if (data && data.title) {
         adsData = data;
       }
     });
 
-  function parseAdsContent(raw) {
-    // Pisahkan link dari konten
-    let link = '';
-    let content = raw;
-    const linkMatch = raw.match(/https?:\/\/\S+/);
-    if (linkMatch) {
-      link = linkMatch[0];
-      content = raw.replace(link, '').trim();
-    }
-    // Ganti \n dengan <br>
-    content = content.replace(/\\n|\n/g, '<br>');
-    return { content, link };
-  }
-
   function showAdsModal() {
     if (!adsData) return;
-    document.getElementById('adsTitle').textContent = adsData.title;
-    const parsed = parseAdsContent(adsData.content);
-    document.getElementById('adsContent').innerHTML = parsed.content;
+    // Banner partnership
+    document.getElementById('adsBanner').style.background = adsData.partnership_color || '#2563eb';
+    document.getElementById('adsBannerText').textContent = adsData.partnership_text || 'BINGX PARTNERSHIP';
+    // Judul
+    document.getElementById('adsTitle').children[1].textContent = adsData.title;
+    // YouTube embed
+    const ytDiv = document.getElementById('adsYoutube');
+    if (adsData.youtube_url) {
+      ytDiv.innerHTML = `<iframe width="100%" height="220" src="${adsData.youtube_url.replace('watch?v=', 'embed/')}" frameborder="0" allowfullscreen style="border-radius:12px;"></iframe>`;
+      ytDiv.style.display = 'block';
+    } else {
+      ytDiv.innerHTML = '';
+      ytDiv.style.display = 'none';
+    }
+    // Konten HTML
+    document.getElementById('adsContentHtml').innerHTML = adsData.content_html || '';
+    // Tombol promo
     const joinBtn = document.getElementById('adsJoinBtn');
-    if (parsed.link) {
-      joinBtn.href = parsed.link;
+    if (adsData.promo_link) {
+      joinBtn.href = adsData.promo_link;
       joinBtn.style.display = 'inline-block';
     } else {
       joinBtn.style.display = 'none';
