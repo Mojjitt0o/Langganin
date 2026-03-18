@@ -242,6 +242,71 @@
       if (e.key === 'Escape' && modal.classList.contains('active')) closeModal();
     });
   })();
+  </script>
+  <!-- ADS MODAL -->
+  <div class="ads-modal" id="adsModal" style="display:none; position:fixed; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.45); z-index:99999; align-items:center; justify-content:center;">
+    <div class="ads-box" style="background:#fff; max-width:420px; margin:auto; border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,0.18); padding:2.2rem 2rem 1.5rem 2rem; position:relative;">
+      <button id="adsClose" style="position:absolute; top:14px; right:14px; background:none; border:none; font-size:1.7rem; cursor:pointer; color:#888;">✕</button>
+      <div id="adsTitle" style="font-weight:700; font-size:1.3rem; margin-bottom:0.7rem; color:#222;"></div>
+      <div id="adsContent" style="margin-bottom:1.2rem; color:#444;"></div>
+      <a id="adsJoinBtn" href="#" target="_blank" rel="noopener" style="display:inline-block; background:#2563eb; color:#fff; font-weight:600; border-radius:8px; padding:0.7em 1.4em; font-size:1rem; text-decoration:none; margin-top:0.5rem; box-shadow:0 2px 8px rgba(37,99,235,0.08); transition:background 0.2s;">Join Sekarang 🚀</a>
+    </div>
+  </div>
+  <script>
+  // Tampilkan iklan setelah pengumuman ditutup
+  let adsData = null;
+  fetch('/api/ads/settings')
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.title && data.content) {
+        adsData = data;
+      }
+    });
+
+  function parseAdsContent(raw) {
+    // Pisahkan link dari konten
+    let link = '';
+    let content = raw;
+    const linkMatch = raw.match(/https?:\/\/\S+/);
+    if (linkMatch) {
+      link = linkMatch[0];
+      content = raw.replace(link, '').trim();
+    }
+    // Ganti \n dengan <br>
+    content = content.replace(/\\n|\n/g, '<br>');
+    return { content, link };
+  }
+
+  function showAdsModal() {
+    if (!adsData) return;
+    document.getElementById('adsTitle').textContent = adsData.title;
+    const parsed = parseAdsContent(adsData.content);
+    document.getElementById('adsContent').innerHTML = parsed.content;
+    const joinBtn = document.getElementById('adsJoinBtn');
+    if (parsed.link) {
+      joinBtn.href = parsed.link;
+      joinBtn.style.display = 'inline-block';
+    } else {
+      joinBtn.style.display = 'none';
+    }
+    document.getElementById('adsModal').style.display = 'flex';
+  }
+  document.getElementById('adsClose').onclick = function() {
+    document.getElementById('adsModal').style.display = 'none';
+  };
+
+  // Hook ke close pengumuman
+  (function(){
+    const annClose = document.getElementById('annClose');
+    const annOkBtn = document.getElementById('annOkBtn');
+    function afterAnnClosed() {
+      if (adsData && typeof adsData.delay === 'number') {
+        setTimeout(showAdsModal, adsData.delay * 1000);
+      }
+    }
+    if (annClose) annClose.addEventListener('click', afterAnnClosed);
+    if (annOkBtn) annOkBtn.addEventListener('click', afterAnnClosed);
+  })();
 </script>
 <script src="/js/translations.js"></script>
 <script src="/js/theme-lang.js"></script>

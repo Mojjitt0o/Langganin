@@ -101,6 +101,7 @@ app.use('/api/withdrawal', withdrawalRoutes);
 app.use('/api/support',    supportRoutes);
 app.use('/api/affiliate',  affiliateRoutes);
 app.use('/api/logs',       logRoutes);
+app.use('/api/ads',        require('./routes/adsRoutes'));
 
 // ── Test Webhook Endpoint (for development/testing) ───────────────────────────
 app.post('/api/test-webhook', express.json(), async (req, res) => {
