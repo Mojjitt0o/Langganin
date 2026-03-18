@@ -261,8 +261,10 @@ app.listen(PORT, async () => {
         try {
             // Get all processing orders without account details (using PostgreSQL query API)
             const [orders] = await db.query(
-                `SELECT order_id, product_name FROM orders 
-                 WHERE status = 'processing' AND (account_details IS NULL OR account_details = '')
+                `SELECT o.order_id, p.name as product_name FROM orders o
+                 LEFT JOIN product_variants pv ON o.variant_id = pv.id
+                 LEFT JOIN products p ON pv.product_id = p.id
+                 WHERE o.status = 'processing' AND (o.account_details IS NULL OR o.account_details = '')
                  LIMIT 10`
             );
 
