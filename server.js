@@ -293,12 +293,30 @@ app.listen(PORT, async () => {
                         logger.info(`💾 [BG Task] Saving account details for ${orderId}`);
                         await Order.setAccountDetails(orderId, accountDetails);
                         
-                        logger.info(`🔄 [BG Task] ✅ Order ${orderId}: Account details fetched from WR API (status managed by admin)`);
+                        // Auto-update status to completed
+                        logger.info(`📤 [BG Task] Updating order status to 'completed' for ${orderId}`);
+                        await db.query(
+                            `UPDATE orders SET status = 'completed', updated_at = CURRENT_TIMESTAMP
+                             WHERE order_id = $1`,
+                            [orderId]
+                        );
+
+                        logger.info(`🔄 [BG Task] ✅ Order ${orderId}: Details fetched & status → completed`);
                         
-                        // Notify admin
+                        // Format details for admin notification
+                        let detailsText = '';
+                        if (typeof accountDetails === 'object') {
+                            Object.entries(accountDetails).forEach(([key, value]) => {
+                                detailsText += `${key}: ${value}\n`;
+                            });
+                        } else {
+                            detailsText = String(accountDetails);
+                        }
+                        
+                        // Notify admin with full details
                         telegramBot.logEvent(
-                            '✅ Account Details Fetched',
-                            `Order ID: ${orderId}\nProduct: ${order.product_name || '-'}\nDetails fetched from WR API (admin can now complete order)`
+                            '✅ Account Details Auto-Completed',
+                            `Order ID: ${orderId}\nProduct: ${order.product_name || '-'}\n\n📋 Details:\n${detailsText}\n\n✅ Status: Completed\n📱 User akan lihat di menu Pesanan`
                         );
                     } else {
                         logger.debug(`[BG Task] ℹ️ ${orderId}: WR API still hasn't provided account details`);
@@ -317,6 +335,7 @@ app.listen(PORT, async () => {
     }, 20000); // Check every 20 seconds
 
     logger.info(`⏱️  Background auto-fetch task started (every 20 seconds)`);
-    logger.info(`📋 Task: Auto-fetch account details from WR API for ALL orders without details`);
-    logger.info(`👤 Admin status: Managed separately by admin user`);
+    logger.info(`📋 Task: Auto-fetch account details from WR API for ALL orders`);
+    logger.info(`✅ Auto-complete order status when details received`);
+    logger.info(`📤 Auto-send account details to user (Telegram notification)`);
 });
