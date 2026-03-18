@@ -92,6 +92,79 @@ app.use('/api/support',    supportRoutes);
 app.use('/api/affiliate',  affiliateRoutes);
 app.use('/api/logs',       logRoutes);
 
+// ── Test Webhook Endpoint (for development/testing) ───────────────────────────
+app.post('/api/test-webhook', express.json(), async (req, res) => {
+    try {
+        const { order_id, status, account_details } = req.body;
+        
+        if (!order_id || !status) {
+            return res.status(400).json({ success: false, message: 'Missing required fields' });
+        }
+        
+        // Create payload
+        const payload = JSON.stringify({
+            event: 'order_completed',
+            data: {
+                order_id,
+                status,
+                account_details: account_details || {}
+            }
+        });
+        
+        // Generate signature
+        const crypto = require('crypto');
+        const signature = crypto.createHmac('sha256', process.env.WR_API_KEY)
+            .update(payload)
+            .digest('hex');
+        
+        logger.info(`📧 Test webhook: ${order_id}, sig=${signature.substring(0, 20)}...`);
+        
+        // Forward to webhook handler with signature
+        const forwardReq = require('https').request({
+            hostname: 'www.langganin.my.id',
+            path: '/api/webhook/warung-rebahan',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload),
+                'x-premiy-signature': signature
+            }
+        }, (webhookRes) => {
+            let data = '';
+            webhookRes.on('data', chunk => data += chunk);
+            webhookRes.on('end', () => {
+                try {
+                    res.json({
+                        success: true,
+                        message: 'Test webhook sent',
+                        webhook_status: webhookRes.statusCode,
+                        webhook_response: JSON.parse(data)
+                    });
+                } catch (e) {
+                    res.json({
+                        success: true,
+                        message: 'Test webhook sent',
+                        webhook_status: webhookRes.statusCode,
+                        webhook_response: data
+                    });
+                }
+            });
+        });
+        
+        forwardReq.on('error', (e) => {
+            logger.error('Test webhook forward error:', e.message);
+            res.status(500).json({ success: false, message: 'Failed to forward webhook', error: e.message });
+        });
+        
+        forwardReq.write(payload);
+        forwardReq.end();
+        
+    } catch (error) {
+        logger.error('Test webhook error:', error.message);
+        res.status(500).json({ success: false, message: 'Test webhook error', error: error.message });
+    }
+});
+
 // Expose Telegram bot link
 app.get('/api/bot-info', (req, res) => {
     const username = process.env.TELEGRAM_BOT_USERNAME || '';

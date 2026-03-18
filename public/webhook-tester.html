@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webhook Tester - Warung Rebahan</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            transition: border-color 0.3s;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        textarea {
+            min-height: 150px;
+            resize: vertical;
+            font-family: 'Courier New', monospace;
+        }
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 30px;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-send {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-send:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        .btn-reset {
+            background: #f0f0f0;
+            color: #333;
+        }
+        .btn-reset:hover {
+            background: #e0e0e0;
+        }
+        .response-section {
+            margin-top: 30px;
+            display: none;
+        }
+        .response-section.show {
+            display: block;
+        }
+        .response-title {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        .response-box {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            color: #333;
+            line-height: 1.5;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #1565c0;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔔 Webhook Tester</h1>
+        <p class="subtitle">Test WR webhook integration untuk Warung Rebahan Shop</p>
+
+        <div class="info-box">
+            ℹ️ <strong>Testing Endpoint:</strong> POST /api/test-webhook<br>
+            Server akan auto-generate HMAC signature dan forward ke webhook handler
+        </div>
+
+        <form id="webhookForm">
+            <div class="form-group">
+                <label for="orderId">Order ID *</label>
+                <input type="text" id="orderId" value="RBHN-20260318-A7A9CB" placeholder="e.g., RBHN-20260318-A7A9CB" required>
+            </div>
+
+            <div class="form-group">
+                <label for="status">Status *</label>
+                <input type="text" id="status" value="done" placeholder="e.g., done, completed" required>
+            </div>
+
+            <div class="form-group">
+                <label for="accountDetails">Account Details (JSON) *</label>
+                <textarea id="accountDetails" placeholder='{"Email": "user@gmail.com", "Password": "pass123"}'>{"Email": "test@gmail.com", "Password": "pass123"}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="payload">Full Payload (Auto-generated)</label>
+                <textarea id="payload" readonly></textarea>
+            </div>
+
+            <div class="button-group">
+                <button type="submit" class="btn-send">📤 Send Webhook</button>
+                <button type="reset" class="btn-reset">🔄 Reset</button>
+            </div>
+        </form>
+
+        <div id="responseSection" class="response-section">
+            <div class="response-title">Response:</div>
+            <div id="statusBadge" class="status-badge"></div>
+            <div id="responseBox" class="response-box"></div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('webhookForm');
+        const orderIdInput = document.getElementById('orderId');
+        const statusInput = document.getElementById('status');
+        const accountDetailsInput = document.getElementById('accountDetails');
+        const payloadInput = document.getElementById('payload');
+        const responseSection = document.getElementById('responseSection');
+        const statusBadge = document.getElementById('statusBadge');
+        const responseBox = document.getElementById('responseBox');
+
+        // Auto-generate payload
+        function updatePayload() {
+            try {
+                const details = JSON.parse(accountDetailsInput.value);
+                const payload = {
+                    event: 'order_completed',
+                    data: {
+                        order_id: orderIdInput.value,
+                        status: statusInput.value,
+                        account_details: details
+                    }
+                };
+                payloadInput.value = JSON.stringify(payload, null, 2);
+            } catch (e) {
+                payloadInput.value = '[Invalid JSON in Account Details]';
+            }
+        }
+
+        orderIdInput.addEventListener('change', updatePayload);
+        statusInput.addEventListener('change', updatePayload);
+        accountDetailsInput.addEventListener('input', updatePayload);
+        
+        // Initial payload generation
+        updatePayload();
+
+        // Form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            try {
+                // Validate JSON
+                const details = JSON.parse(accountDetailsInput.value);
+                
+                // Show loading state
+                responseSection.classList.add('show');
+                statusBadge.innerHTML = '<span class="spinner"></span><span class="loading">Sending...</span>';
+                responseBox.textContent = 'Processing...';
+
+                // Send to test endpoint (server will generate signature)
+                const response = await fetch('/api/test-webhook', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        order_id: orderIdInput.value,
+                        status: statusInput.value,
+                        account_details: details
+                    })
+                });
+
+                const data = await response.json();
+
+                // Show response
+                statusBadge.className = 'status-badge ' + (response.ok ? 'status-success' : 'status-error');
+                statusBadge.innerHTML = `${response.ok ? '✅' : '❌'} Status ${response.status}`;
+                responseBox.textContent = JSON.stringify(data, null, 2);
+
+                if (response.ok) {
+                    console.log('✅ Webhook test sent successfully!');
+                }
+            } catch (error) {
+                responseSection.classList.add('show');
+                statusBadge.className = 'status-badge status-error';
+                statusBadge.innerHTML = '❌ Error';
+                responseBox.textContent = error.message || 'Unknown error occurred';
+            }
+        });
+
+        // Note: Signature calculation happens on server-side now
+        function generateSignature(payload) {
+            // No longer needed - server handles this
+            return 'calculated-on-server';
+        }
+    </script>
+</body>
+</html>
