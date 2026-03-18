@@ -285,33 +285,29 @@ app.listen(PORT, async () => {
                     const accountDetails = await Order.fetchAccountDetailsFromWR(orderId);
                     
                     if (accountDetails) {
-                        // Atomic update: set account details AND status in one operation
-                        const details = typeof accountDetails === 'string' 
-                            ? accountDetails 
-                            : JSON.stringify(accountDetails);
+                        // Save details first
+                        logger.info(`💾 [BG Task] Saving account details for ${orderId}`);
+                        await Order.setAccountDetails(orderId, accountDetails);
                         
-                        const [result] = await db.query(
-                            `UPDATE orders 
-                             SET account_details = $1, status = 'completed', updated_at = CURRENT_TIMESTAMP
-                             WHERE order_id = $2 AND status = 'processing' AND (account_details IS NULL OR account_details = '')`,
-                            [details, orderId]
+                        // Then update status to completed
+                        logger.info(`📤 [BG Task] Updating status to 'completed' for ${orderId}`);
+                        await db.query(
+                            `UPDATE orders SET status = 'completed', updated_at = CURRENT_TIMESTAMP
+                             WHERE order_id = $1 AND status = 'processing'`,
+                            [orderId]
                         );
 
-                        if (result && result.length > 0) {
-                            logger.info(`🔄 [BG Task] ✅ Order ${orderId}: Details fetched & status → completed`);
-                            
-                            // Notify admin
-                            telegramBot.logEvent(
-                                '✅ Order Auto-Completed',
-                                `Order ID: ${orderId}\nProduct: ${order.product_name || '-'}\nAccount details fetched from WR API`
-                            );
-                        } else {
-                            logger.debug(`[BG Task] ℹ️ ${orderId}: Already completed, skipping...`);
-                        }
+                        logger.info(`🔄 [BG Task] ✅ Order ${orderId}: Details fetched & status → completed`);
+                        
+                        // Notify admin
+                        telegramBot.logEvent(
+                            '✅ Order Auto-Completed',
+                            `Order ID: ${orderId}\nProduct: ${order.product_name || '-'}\nAccount details fetched from WR API`
+                        );
                     }
 
                 } catch (err) {
-                    logger.debug(`[BG Task] Fetch pending for ${orderId}: ${err.message?.substring(0, 50)}`);
+                    logger.debug(`[BG Task] Fetch pending for ${orderId}: ${err.message?.substring(0, 100) || err}`);
                 } finally {
                     // Always release lock
                     lockManager.releaseLock(orderId);
