@@ -1,6 +1,6 @@
 {
   "name": "warung-rebahan-shop",
-  "version": "3.0.0",
+  "version": "3.2.0",
   "description": "Langganin — Platform reseller produk digital premium",
   "main": "server.js",
   "scripts": {

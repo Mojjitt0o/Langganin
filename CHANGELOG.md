@@ -1,4 +1,77 @@
-# 🔐 LANGGANIN v3.0 — Security & Refactor Update
+# 📋 LANGGANIN CHANGELOG
+
+---
+
+# v3.2 — WR API Account Details Integration ✨
+
+## 📅 Tanggal: 18 Maret 2026
+
+### ✨ Fitur Baru
+
+#### **Full WR API Integration untuk Auto Account Details** (MAJOR)
+- Sistem auto-fetch credentials dari WR `/transactions` endpoint ketika order completed
+- Support 2 format data:
+  - **WR Actual Format**: Direct label/value dalam details array (yang digunakan WR sekarang)
+  - **WR Docs Format**: Nested credentials dengan title (untuk future compatibility)
+- Atomic database updates: status + account_details tersimpan bersama dalam 1 transaction
+- Enhanced Telegram logging dengan proper formatting untuk nested account structures
+
+### 🐛 Bug Fixes
+
+#### **Fix Endpoint untuk Fetch Account Details** (KRITIS) ✅
+- **Sebelumnya**: Menggunakan endpoint `/order/detail` yang TIDAK ADA di WR API
+- **Sekarang**: Menggunakan endpoint `/transactions` yang CORRECT (dokumentasi resmi WR)
+- **Hasil**: Credentials sekarang bisa di-fetch dan ditampilkan ke user dengan status "done"
+- **File**: `models/Order.js` - `fetchAccountDetailsFromWR()`
+
+#### **Fix Format Parsing Account Details** (TINGGI) ✅
+- **Sebelumnya**: Frontend hanya bisa parse nested format dengan `credentials` array
+- **Sekarang**: Support BOTH:
+  1. Direct label/value di details array (format WR actual)
+  2. Nested dengan title dan credentials (format WR docs)
+- **Files Updated**: 
+  - `views/orders.html` - `formatAccountDetails()` function
+  - `views/admin.html` - `formatAccountDetails()` function
+
+#### **Fix Webhook Signature Validation** (TINGGI) ✅
+- Enhanced signature validation dengan:
+  - Multiple header name variants support (x-premiy-signature, x-signature, dll)
+  - Dev mode: skip signature check, log warning (production: strict)
+  - Better error messages: payload preview, available headers listing, signature comparison
+- **File**: `controllers/webhookController.js` - comprehensive error reporting
+
+#### **Improve WR API Fetch Reliability** (TINGGI) ✅
+- Added `fetchAccountDetailsWithRetry()` with 10x retry, 15s linear intervals
+- Improved error handling dengan Telegram notifications
+- Proper timeout management (25 seconds untuk WR API)
+- **File**: `models/Order.js`
+
+### 📝 Documentation Added ✅
+- **WEBHOOK_GUIDE.md** — Complete webhook integration reference dengan expected payloads
+- **WEBHOOK_TEST_GUIDE.md** — Step-by-step testing procedures (curl, Postman, browser)
+- **IMPLEMENTATION_SUMMARY.md** — Detailed technical changes dan testing checklist
+- **IMPLEMENTATION_READY.md** — Quick summary & production deployment checklist
+
+### 🔧 Technical Improvements
+- Race condition prevention: Lock manager untuk webhook, background task, IIFE
+- Atomic operations: Status dan credentials update dalam single transaction
+- Enhanced logging: Payload previews, format detection, Telegram formatting
+- Better error context: Helpful messages ketika fetch gagal
+
+### ⚠️ Known Limitations
+- ❌ WR API IP whitelist required (user must contact WR support dengan IP 140.213.118.197 atau server IP)
+- ⏳ Account details muncul 1-2 menit setelah webhook received
+- 🧪 Sandbox test orders (`is_test: true`) tidak tersimpan di WR system
+
+### 📦 Migration Notes
+- **Database**: No schema changes (account_details column sudah ada, tipe JSONB)
+- **Environment**: No new env vars required
+- **Deployment**: Restart server untuk load updated code
+- **Testing**: Use WEBHOOK_TEST_GUIDE.md untuk validate sebelum production
+
+---
+
+# v3.0 — Security & Refactor Update
 
 ## 📅 Tanggal: Maret 2026
 

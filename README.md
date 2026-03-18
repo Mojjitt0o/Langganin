@@ -3,7 +3,8 @@
 Platform reseller produk digital premium (Netflix, Spotify, Canva Pro, YouTube Premium, dll.) dengan integrasi Warung Rebahan API.
 
 **v3.0** — Security & Refactor Update  
-**v3.1** — Auto Account Details Feature
+**v3.1** — Auto Account Details Foundation  
+**v3.2** — WR API Account Details Integration ✨ (Latest)
 
 ## ✨ Fitur
 
@@ -11,7 +12,7 @@ Platform reseller produk digital premium (Netflix, Spotify, Canva Pro, YouTube P
 - 📦 Sinkronisasi produk dari Warung Rebahan API
 - 💳 Top Up saldo via Midtrans (QRIS, bank transfer, e-wallet, Alfamart)
 - 🛒 Order management dengan koneksi langsung ke supplier WR
-- 📋 **Auto Account Details** — Detail akun langsung muncul setelah order (Fitur Baru!)
+- 📋 **Auto Account Details** — Kredensial akun otomatis muncul dalam 1-2 menit setelah order (✨ v3.2: Full WR API Integration)
 - 💰 Sistem withdrawal dengan flow approve/reject admin
 - 🤝 Sistem affiliate & referral (komisi + diskon buyer)
 - 📊 Admin dashboard: statistik, profit, manajemen user, produk, order
