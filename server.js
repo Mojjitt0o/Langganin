@@ -265,14 +265,14 @@ app.listen(PORT, async () => {
                 `SELECT o.order_id, p.name as product_name, o.account_details FROM orders o
                  LEFT JOIN product_variants pv ON o.variant_id = pv.id
                  LEFT JOIN products p ON pv.product_id = p.id
-                 WHERE o.account_details IS NULL OR TRIM(o.account_details) = ''
+                 WHERE o.account_details IS NULL OR o.account_details::text = ''
                  LIMIT 10`
             );
 
             if (!orders || orders.length === 0) return;
 
             // Filter in-memory to avoid JSON issues
-            const pendingOrders = orders.filter(o => !o.account_details || o.account_details.trim() === '');
+            const pendingOrders = orders.filter(o => !o.account_details || (typeof o.account_details === 'string' && o.account_details.trim() === ''));
 
             // Try to fetch from WR API for each pending order
             for (const order of pendingOrders) {
