@@ -2,11 +2,12 @@
 const db = require('../config/database');
 const axios = require('axios');
 const logger = require('../services/logger');
+const telegramBot = require('../services/telegramBot');
 require('dotenv').config();
 
 class Order {
     static async create(orderData, userId) {
-        const { variant_id, quantity = 1, voucher_code, buyer_whatsapp } = orderData;
+        const { variant_id, quantity = 1, voucher_code, buyer_whatsapp, email_invite } = orderData;
 
         // ── 1. Validate variant (outside transaction — read-only) ──────────
         const [variantRows] = await db.query(
@@ -57,6 +58,7 @@ class Order {
         try {
             const apiPayload = { api_key: process.env.WR_API_KEY, variant_id, quantity };
             if (voucher_code) apiPayload.voucher_code = voucher_code;
+            if (email_invite) apiPayload.email_invite = email_invite;
 
             const apiResponse = await axios.post(`${process.env.WR_API_URL}/order`, apiPayload, { timeout: 15000 });
 
@@ -65,6 +67,12 @@ class Order {
             }
             apiOrder = apiResponse.data.data;
         } catch (apiError) {
+            const msg = apiError.response?.data?.message || apiError.message || 'Unknown error';
+            telegramBot.logEvent(
+              'WR Order Create Failed',
+              `User ID: ${userId}\nVariant: ${variant_id}\nError: ${msg}`
+            );
+
             if (apiError.response) {
                 throw new Error(`Pesanan gagal diproses: ${apiError.response.data?.message || 'Silakan coba lagi'}`);
             }
@@ -140,16 +148,29 @@ class Order {
                 profit
             };
 
-            // Fetch and store account details in background
+            // Fetch account details in background, retry if not available, then mark order as complete
             (async () => {
                 try {
-                    const accountDetails = await Order.fetchAccountDetailsFromWR(apiOrder.order_id);
+                    const accountDetails = await Order.fetchAccountDetailsWithRetry(apiOrder.order_id, { maxAttempts: 6, intervalMs: 20000 });
                     if (accountDetails) {
-                        await Order.setAccountDetails(apiOrder.order_id, accountDetails);
-                        logger.info(`Account details fetched and saved for order ${apiOrder.order_id}`);
+                        const completedOrder = await Order.completeOrder(apiOrder.order_id, accountDetails);
+                        logger.info(`Account details fetched and order completed for ${apiOrder.order_id}`);
+
+                        // Send to Telegram admin log
+                        telegramBot.logEvent(
+                            'Order Completed (Account Details)',
+                            `Order ID: ${apiOrder.order_id}\n` +
+                            `User ID: ${userId}\n` +
+                            `Status: ${completedOrder.status}\n` +
+                            `Account Details:\n${JSON.stringify(accountDetails, null, 2)}`
+                        );
                     }
                 } catch (err) {
                     logger.error(`Failed to fetch account details for order ${apiOrder.order_id}: ${err.message}`);
+                    telegramBot.logEvent(
+                        'WR API Error',
+                        `Order ID: ${apiOrder.order_id}\nError: ${err.message}`
+                    );
                 }
             })();
 
@@ -163,7 +184,7 @@ class Order {
         }
     }
 
-    // Fetch account details from WR API
+    // Fetch account details from WR API (single call)
     static async fetchAccountDetailsFromWR(orderId) {
         try {
             const apiResponse = await axios.post(`${process.env.WR_API_URL}/order/detail`, {
@@ -172,41 +193,97 @@ class Order {
             }, { timeout: 10000 });
 
             if (!apiResponse.data || !apiResponse.data.success) {
-                logger.warn(`WR API order detail failed for ${orderId}: ${apiResponse.data?.message}`);
+                const msg = apiResponse.data?.message || 'Unknown error';
+                logger.debug(`WR API order detail not ready for ${orderId}: ${msg}`);
                 return null;
             }
 
             const orderData = apiResponse.data.data;
+            logger.debug(`WR API response for ${orderId}:`, JSON.stringify(orderData?.account_details || {}).substring(0, 500));
             
             // Transform WR API account_details format to the format we use
-            if (orderData.account_details && Array.isArray(orderData.account_details)) {
+            if (orderData.account_details) {
+                const accountDetails = orderData.account_details;
                 const formatted = {};
-                orderData.account_details.forEach(item => {
-                    if (item.product) {
-                        formatted['Produk'] = item.product;
-                    }
-                    if (item.details && Array.isArray(item.details)) {
-                        item.details.forEach(detail => {
-                            if (detail.title) {
-                                if (detail.credentials && Array.isArray(detail.credentials)) {
-                                    detail.credentials.forEach(cred => {
-                                        if (cred.label && cred.value) {
-                                            formatted[`${detail.title} - ${cred.label}`] = cred.value;
-                                        }
-                                    });
+                
+                // Handle Array format (dari WR API)
+                if (Array.isArray(accountDetails)) {
+                    accountDetails.forEach(item => {
+                        if (item.product) {
+                            formatted['Produk'] = item.product;
+                        }
+                        if (item.details && Array.isArray(item.details)) {
+                            item.details.forEach(detail => {
+                                if (detail.title) {
+                                    if (detail.credentials && Array.isArray(detail.credentials)) {
+                                        detail.credentials.forEach(cred => {
+                                            if (cred.label && cred.value) {
+                                                formatted[`${detail.title} - ${cred.label}`] = cred.value;
+                                            }
+                                        });
+                                    }
                                 }
-                            }
-                        });
-                    }
-                });
-                return Object.keys(formatted).length > 0 ? formatted : null;
+                            });
+                        }
+                    });
+                } 
+                // Handle Object format (raw dari WR API atau sudah di-parse)
+                else if (typeof accountDetails === 'object') {
+                    return accountDetails; // Return as-is jika sudah object
+                }
+                
+                // Return formatted jika ada data, atau fallback ke raw data
+                if (Object.keys(formatted).length > 0) {
+                    return formatted;
+                } else if (accountDetails && Object.keys(accountDetails).length > 0) {
+                    return accountDetails;
+                }
             }
 
             return null;
         } catch (error) {
-            logger.error(`WR API call error for order detail: ${error.message}`);
+            // Only log actual error conditions (network, timeout), not 404s
+            if (error.response?.status === 404) {
+                // 404 means order details not ready yet - this is normal during processing
+                logger.debug(`WR API: Order details not ready for ${orderId}`);
+            } else if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+                logger.warn(`WR API timeout for order detail (${orderId}): ${error.message}`);
+            } else {
+                logger.warn(`WR API call error for order detail (${orderId}): ${error.message}`);
+                telegramBot.logEvent(
+                    'WR API Connection Error',
+                    `Order ID: ${orderId}\nError: ${error.message}\nType: ${error.code}`
+                );
+            }
             return null;
         }
+    }
+
+    // Retry fetching account details a few times when unavailable (useful if WR is slow)
+    static async fetchAccountDetailsWithRetry(orderId, options = {}) {
+        const maxAttempts = options.maxAttempts || 6;
+        const intervalMs  = options.intervalMs  || 20000;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            const details = await Order.fetchAccountDetailsFromWR(orderId);
+            if (details) return details;
+
+            telegramBot.logEvent(
+                'WR API Retry',
+                `Order ID: ${orderId}\nAttempt: ${attempt}/${maxAttempts} - details not ready yet. Retrying in ${intervalMs / 1000}s...`
+            );
+
+            if (attempt < maxAttempts) {
+                await new Promise(r => setTimeout(r, intervalMs));
+            }
+        }
+
+        telegramBot.logEvent(
+            'WR API Retry Failed',
+            `Order ID: ${orderId}\nTried ${maxAttempts} times but account details still unavailable.`
+        );
+
+        return null;
     }
 
     static async getUserOrders(userId) {
@@ -267,12 +344,34 @@ class Order {
     }
 
     static async updateFromWebhook(event, data) {
-        const { order_id, status } = data;
-        
+        const { order_id, status, account_details } = data;
+
+        logger.debug(`Webhook update: order=${order_id}, status=${status}, hasDetails=${!!account_details}`);
+
+        // Update status
         await db.query(
             'UPDATE orders SET status = $1 WHERE order_id = $2',
             [status, order_id]
         );
+
+        // If account_details provided in webhook payload, save them directly
+        if (account_details && typeof account_details === 'object' && Object.keys(account_details).length > 0) {
+            logger.info(`✅ Webhook provided account details for ${order_id}, saving directly`);
+            await Order.setAccountDetails(order_id, account_details);
+            return;
+        }
+
+        // If order is marked done/complete, try fetching account details immediately
+        if (['success', 'completed', 'done'].includes(status)) {
+            logger.info(`Order marked as ${status}, fetching account details for ${order_id}`);
+            const accountDetails = await Order.fetchAccountDetailsWithRetry(order_id, { maxAttempts: 6, intervalMs: 20000 });
+            if (accountDetails) {
+                logger.info(`✅ Account details successfully fetched and saved for ${order_id}`);
+                await Order.completeOrder(order_id, accountDetails);
+            } else {
+                logger.warn(`⚠️ Account details not available yet for ${order_id} even after retry`);
+            }
+        }
 
         return true;
     }
@@ -295,7 +394,7 @@ class Order {
 
     static async completeOrder(orderId, accountDetails) {
         const [rows] = await db.query(
-            `UPDATE orders SET status = 'done', account_details = $1 WHERE order_id = $2 RETURNING *`,
+            `UPDATE orders SET status = 'done', account_details = $1 WHERE order_id = $2 AND status != 'done' RETURNING *`,
             [JSON.stringify(accountDetails), orderId]
         );
         return rows[0] || null;

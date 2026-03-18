@@ -353,6 +353,11 @@
         <div class="form-hint">${t('prd_whatsapp_hint')}</div>
       </div>
       <div class="form-group">
+        <label class="form-label">Email untuk Invite (opsional)</label>
+        <input type="email" class="form-input" id="emailInvite" placeholder="contoh@mail.com" />
+        <div class="form-hint">Isi jika produk memerlukan email invite (contoh: invite premium)</div>
+      </div>
+      <div class="form-group">
         <label class="form-label">${t('prd_voucher')} <span style="color:var(--muted); font-weight:400; text-transform:none;">${t('prd_voucher_opt')}</span></label>
         <input type="text" class="form-input" id="voucher" placeholder="${t('prd_voucher_ph')}" />
       </div>
@@ -388,6 +393,8 @@
     alertEl.style.display = 'none';
 
     try {
+      const emailInvite = document.getElementById('emailInvite')?.value.trim();
+
       const r = await fetch('/api/orders/create', {
         method: 'POST',
         credentials: 'include',
@@ -396,6 +403,7 @@
           variant_id: currentVariant.id, 
           quantity: qty, 
           buyer_whatsapp: whatsapp,
+          email_invite: emailInvite || undefined,
           voucher_code: voucher || undefined 
         })
       });

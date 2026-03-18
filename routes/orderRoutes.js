@@ -14,6 +14,9 @@ router.get('/profit-summary', authMiddleware.verifyToken, authMiddleware.isAdmin
 // User or Admin: get account details for an order
 router.get('/:order_id/account-details', authMiddleware.verifyToken, authMiddleware.checkAdmin, orderController.getAccountDetails);
 
+// Admin: manually save account details (useful if data sent directly by developer)
+router.post('/:order_id/account-details', authMiddleware.verifyToken, authMiddleware.isAdmin, orderController.saveAccountDetails);
+
 // Admin: order management
 router.get('/:order_id/detail', authMiddleware.verifyToken, authMiddleware.isAdmin, orderController.getOrderDetail);
 router.patch('/:order_id/status', authMiddleware.verifyToken, authMiddleware.isAdmin, orderController.updateOrderStatus);

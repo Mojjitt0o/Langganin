@@ -217,6 +217,9 @@
   }
 
   // Poll for account details for orders that don't have them yet
+  // Track polling state per order to prevent spam
+  const pollState = new Map();
+
   async function pollAccountDetails() {
     // We poll for *any* order that lacks account details (even if still processing).
     // This ensures details appear once the partner API provides them.
@@ -226,13 +229,24 @@
     
     if (ordersNeedingDetails.length === 0) return;
 
-    // Poll every 3 seconds for up to 5 minutes
-    let pollAttempts = 0;
-    const maxAttempts = 100;
-    const pollInterval = 3000;
+    // Initialize state for new orders
+    for (const order of ordersNeedingDetails) {
+      if (!pollState.has(order.order_id)) {
+        pollState.set(order.order_id, {
+          attempts: 0,
+          failureCount: 0,
+          maxAttempts: 12,              // ~2 minutes with exponential backoff
+          initialDelay: 5000,             // Wait 5 seconds before first poll
+          maxConsecutiveFailures: 4       // Stop after 4 consecutive 404s
+        });
+      }
+    }
 
     const poll = async () => {
       for (const order of ordersNeedingDetails) {
+        const state = pollState.get(order.order_id);
+        if (!state || state.attempts >= state.maxAttempts) continue;
+
         try {
           const response = await fetch(`/api/orders/${order.order_id}/account-details`, { 
             credentials: 'include' 
@@ -240,7 +254,7 @@
           const result = await response.json();
           
           if (result.success && result.data) {
-            // Update the order with account details
+            // ✅ Details found! Update and stop polling for this order
             const idx = allOrders.findIndex(o => o.order_id === order.order_id);
             if (idx >= 0) {
               allOrders[idx].account_details = result.data;
@@ -249,20 +263,44 @@
                 return f === 'all' || o.status === f;
               }));
             }
+            // Mark as complete
+            state.attempts = state.maxAttempts;
+            state.failureCount = 0;
+          } else {
+            // Still waiting, not an error
+            state.failureCount = 0;
           }
         } catch (err) {
-          console.error(`Error fetching account details for order ${order.order_id}:`, err);
+          state.failureCount++;
+          console.warn(`Account details fetch failed (${state.failureCount}/${state.maxConsecutiveFailures}): ${order.order_id}`, err);
+          
+          // Stop polling if too many 404/failures
+          if (state.failureCount >= state.maxConsecutiveFailures) {
+            console.warn(`Stopping poll for ${order.order_id} after ${state.failureCount} consecutive failures`);
+            state.attempts = state.maxAttempts;
+          }
         }
       }
 
-      pollAttempts++;
-      if (pollAttempts < maxAttempts) {
-        setTimeout(poll, pollInterval);
+      // Schedule next poll with exponential backoff
+      let hasMore = false;
+      for (const order of ordersNeedingDetails) {
+        const state = pollState.get(order.order_id);
+        if (state && state.attempts < state.maxAttempts) {
+          hasMore = true;
+          state.attempts++;
+        }
+      }
+
+      if (hasMore) {
+        // Exponential backoff: add 2 seconds each attempt
+        const nextDelay = state.initialDelay + (3000 * state.attempts);
+        setTimeout(poll, nextDelay);
       }
     };
 
-    // Start polling
-    poll();
+    // Start polling with initial delay
+    setTimeout(poll, ordersNeedingDetails[0] ? pollState.get(ordersNeedingDetails[0].order_id).initialDelay : 0);
   }
 
   function renderStats(orders) {

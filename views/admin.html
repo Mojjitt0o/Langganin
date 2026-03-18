@@ -470,6 +470,7 @@
     <button class="tab-btn" onclick="showTab('withdrawals')" data-i18n="adm_tab_withdrawals">💸 Penarikan Dana</button>
     <button class="tab-btn" onclick="showTab('users')" data-i18n="adm_tab_users">👥 Kelola User</button>
     <button class="tab-btn" onclick="showTab('affiliate')" data-i18n="adm_tab_affiliate">🤝 Affiliate</button>
+    <button class="tab-btn" onclick="showTab('logs')">🧾 Logs</button>
     <button class="tab-btn" onclick="showTab('settings')" data-i18n="adm_tab_settings">⚙️ Pengaturan</button>
 </div>
 
@@ -817,6 +818,43 @@
     </div>
 </div>
 
+<!-- Tab: Logs -->
+<div class="tab-panel" id="tab-logs">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h3 style="color:var(--adm-text); margin:0;" >🧾 System Logs</h3>
+            <p style="color:var(--adm-text-faint); margin:0.25rem 0 0; font-size:0.85rem;">Menampilkan log terbaru (event, error, webhook, dll).</p>
+            <p style="color:var(--adm-text-faint); margin:0.5rem 0 0; font-size:0.78rem;">Webhook URL: <code id="webhookUrl" style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:5px;">loading...</code></p>
+        </div>
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+            <select id="logTypeFilter" style="padding:0.4rem 0.75rem; border-radius:10px; border:1px solid var(--adm-border); background:var(--adm-bg-card); color:var(--adm-text);" onchange="loadLogs()">
+                <option value="all">Filter: Semua</option>
+                <option value="Webhook">Webhook</option>
+                <option value="WR API Error">WR API Error</option>
+                <option value="Order Error">Order Error</option>
+                <option value="Topup Error">Topup Error</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="loadLogs()" style="padding:0.5rem 1rem;">↻ Refresh</button>
+        </div>
+    </div>
+
+    <div style="overflow-x:auto; background:var(--adm-bg-card); border:1px solid var(--adm-border-light); border-radius:12px;">
+        <table class="orders-table" id="logsTable" style="min-width:700px;">
+            <thead>
+                <tr>
+                    <th style="width:150px;">Waktu</th>
+                    <th style="width:140px;">Tipe</th>
+                    <th>Pesan</th>
+                    <th style="width:130px;">Meta</th>
+                </tr>
+            </thead>
+            <tbody id="logsTbody">
+                <tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--adm-text-faint);">Memuat...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <!-- Tab: Settings -->
 <div class="tab-panel" id="tab-settings">
     <h3 style="color:var(--adm-text); margin-bottom:1.5rem;" data-i18n="adm_settings">⚙️ Konfigurasi Markup Otomatis</h3>
@@ -894,6 +932,13 @@
         loadUsers();
         loadWithdrawals();
         loadAffiliateAdmin();
+        loadLogs();
+
+        // Show expected webhook URL for WR
+        const webhookEl = document.getElementById('webhookUrl');
+        if (webhookEl) {
+            webhookEl.textContent = `${window.location.origin}/api/webhook/warung-rebahan`;
+        }
     });
 
     // ===== TAB SWITCHER =====
@@ -902,6 +947,11 @@
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById('tab-' + name).classList.add('active');
         event.target.classList.add('active');
+
+        // Refresh logs when tab is opened
+        if (name === 'logs' && typeof loadLogs === 'function') {
+            loadLogs();
+        }
     }
 
     // ===== FETCH HELPER =====
@@ -1822,6 +1872,47 @@ ${t('adm_wa_thanks')}`;
 
         // Load withdrawals
         loadAffWithdrawals();
+    }
+
+    let currentLogTypeFilter = 'all';
+
+    async function loadLogs(limit = 100) {
+        const filterSelect = document.getElementById('logTypeFilter');
+        if (filterSelect) currentLogTypeFilter = filterSelect.value;
+
+        const res = await fetchAPI(`/logs?limit=${limit}`);
+        if (!res?.success) return;
+        renderLogs(res.data);
+    }
+
+    function renderLogs(logs) {
+        const tbody = document.getElementById('logsTbody');
+        if (!logs || logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--adm-text-faint);padding:2rem;">Tidak ada log.</td></tr>';
+            return;
+        }
+
+        const filtered = currentLogTypeFilter === 'all'
+            ? logs
+            : logs.filter(l => String(l.type || '').toLowerCase().includes(currentLogTypeFilter.toLowerCase()));
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--adm-text-faint);padding:2rem;">Tidak ada log sesuai filter.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(log => {
+            const meta = log.meta ? JSON.stringify(log.meta, null, 2) : '';
+            const metaPreview = meta ? `<pre style="white-space:pre-wrap; max-height:100px; overflow:auto; font-size:0.8rem; margin:0;">${escHtml(meta)}</pre>` : '<span style="color:var(--adm-text-faint);">-</span>';
+            return `
+            <tr>
+                <td style="white-space:nowrap; font-size:0.85rem; color:var(--adm-text-faint);">${new Date(log.created_at).toLocaleString('id-ID')}</td>
+                <td style="font-weight:700; font-size:0.85rem;">${escHtml(log.type)}</td>
+                <td style="font-size:0.85rem; white-space:pre-wrap;">${escHtml(log.message)}</td>
+                <td style="font-size:0.8rem; white-space:nowrap; max-width:180px; overflow:hidden; text-overflow:ellipsis;">${metaPreview}</td>
+            </tr>
+        `;
+        }).join('');
     }
 
     async function saveAffSettings() {

@@ -49,6 +49,7 @@ node scripts/migrate-affiliate.js
 node scripts/migrate-password-reset.js
 node scripts/migrate-snap-token.js
 node scripts/migrate-referral-discount.js
+node scripts/migrate-add-logs.js
 ```
 
 ### 4. Konfigurasi Environment
@@ -392,6 +393,34 @@ const maxAttempts = 100;     // ubah untuk durasi lebih lama
 // Di dalam fetchAccountDetailsFromWR()
 logger.info(`Fetching WR details for order: ${orderId}`);
 ```
+
+---
+
+## 🌐 Webhook WR (Rekomendasi)
+Agar server kamu otomatis ter-update ketika status order berubah di WR, pasang webhook URL ini di panel WR:
+
+```
+https://<your-domain>/api/webhook/warung-rebahan
+```
+
+Webhook akan menerima payload seperti:
+```json
+{
+  "event": "order.updated",
+  "data": {
+    "order_id": "ORD-xxxxx",
+    "status": "done"
+  }
+}
+```
+
+Fungsi webhook di server sudah:
+- Verifikasi signature HMAC-SHA256 (header `http_x_premiy_signature`)
+- Update status order di DB
+- Jika status `done/completed/success`, otomatis mencoba ambil `account_details` lewat WR API
+- Kirim log ke Telegram (jika bot aktif)
+
+> Pastikan `WR_API_KEY` di `.env` cocok dengan yang dipakai di panel WR (digunakan sebagai secret signature).
 
 ---
 ### Database Connection Error

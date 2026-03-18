@@ -3,6 +3,7 @@ const db = require('../config/database');
 const midtransClient = require('midtrans-client');
 const crypto = require('crypto');
 const logger = require('../services/logger');
+const telegramBot = require('../services/telegramBot');
 require('dotenv').config();
 
 // Initialize Midtrans Snap
@@ -138,6 +139,10 @@ class TopupController {
 
             if (!notification.signature_key || notification.signature_key !== expectedSig) {
                 logger.warn(`Midtrans: invalid signature for order ${notification.order_id}`);
+                telegramBot.logEvent(
+                  'Midtrans Signature Error',
+                  `Order ID: ${notification.order_id}\nSignature invalid`
+                );
                 return res.status(401).json({ success: false, message: 'Invalid signature' });
             }
             // ─────────────────────────────────────────────────────────────────
@@ -221,6 +226,19 @@ class TopupController {
                 );
 
                 logger.info(`Balance +${transaction.amount} for user ${transaction.user_id} (order ${orderId})`);
+
+                telegramBot.logEvent(
+                  'Topup Success',
+                  `User ID: ${transaction.user_id}\nOrder: ${orderId}\nAmount: ${transaction.amount}\nPayment: ${notification.payment_type}`
+                );
+            }
+
+            // Notify on failure/cancel/deny
+            if (['failed', 'cancelled', 'expired'].includes(newStatus) && newStatus !== transaction.status) {
+                telegramBot.logEvent(
+                  'Topup Failed',
+                  `User ID: ${transaction.user_id}\nOrder: ${orderId}\nStatus: ${newStatus}\nPayment: ${notification.payment_type}`
+                );
             }
 
             res.json({ success: true });

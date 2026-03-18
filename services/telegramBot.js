@@ -2,6 +2,7 @@
 const axios = require('axios');
 const crypto = require('crypto');
 const logger = require('./logger');
+const Log = require('../models/Log');
 
 const BOT_TOKEN    = process.env.TELEGRAM_BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID;
@@ -293,6 +294,22 @@ function getBotUsername() {
   return BOT_USERNAME;
 }
 
+// Log a generic event/message to the admin chat
+async function logEvent(title, details) {
+  // Persist to DB (best-effort) so we can show logs in UI
+  try {
+    await Log.create(title, details);
+  } catch (err) {
+    logger.warn('[TelegramBot] Failed to save log to DB: ' + err.message);
+  }
+
+  if (!ADMIN_CHAT_ID) return null;
+  const text =
+    `📝 <b>${escapeHtml(title)}</b>\n\n` +
+    `${escapeHtml(details)}`;
+  return sendMessage(ADMIN_CHAT_ID, text, { disable_web_page_preview: true });
+}
+
 // Called by authController after successful password reset
 async function notifyPasswordResetSuccess(userId, username) {
   // Send success message to user if they used the bot flow
@@ -315,6 +332,7 @@ async function notifyPasswordResetSuccess(userId, username) {
 module.exports = {
   sendMessage,
   sendSupportTicket,
+  logEvent,
   notifyPasswordResetSuccess,
   startPolling,
   stopPolling,

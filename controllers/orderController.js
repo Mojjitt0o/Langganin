@@ -4,27 +4,52 @@ const Product = require('../models/Product');
 const User = require('../models/User');
 const axios = require('axios');
 const logger = require('../services/logger');
+const telegramBot = require('../services/telegramBot');
 
 const orderController = {
     async createOrder(req, res) {
         try {
-            const { variant_id, quantity, voucher_code } = req.body;
+            const { variant_id, quantity, voucher_code, email_invite } = req.body;
             const userId = req.userId;
 
+            // Input validation - variant_id must be provided
             if (!variant_id) {
                 return res.status(400).json({ success: false, message: 'variant_id harus diisi' });
             }
 
-            const qty = parseInt(quantity) || 1;
-            if (qty < 1) {
-                return res.status(400).json({ success: false, message: 'Quantity minimal 1' });
+            // Quantity validation
+            const qty = parseInt(quantity, 10) || 1;
+            if (qty < 1 || qty > 100) {
+                return res.status(400).json({ success: false, message: 'Quantity harus antara 1-100' });
             }
 
-            const order = await Order.create({ variant_id, quantity: qty, voucher_code }, userId);
+            // Voucher code validation (optional, but if provided must be valid)
+            if (voucher_code && (typeof voucher_code !== 'string' || voucher_code.trim().length === 0 || voucher_code.length > 50)) {
+                return res.status(400).json({ success: false, message: 'Voucher code tidak valid' });
+            }
+
+            // Email invite validation (optional, but if provided must be valid email)
+            if (email_invite && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email_invite) || email_invite.length > 100)) {
+                return res.status(400).json({ success: false, message: 'Email invite tidak valid' });
+            }
+
+            const order = await Order.create({ variant_id, quantity: qty, voucher_code, email_invite }, userId);
+
+            // Notify admin via Telegram about new order
+            telegramBot.logEvent(
+              'New Order Created',
+              `User ID: ${userId}\nEmail: ${req.userEmail || '-'}\nOrder ID: ${order.order_id}\nVariant: ${variant_id}\nQuantity: ${qty}` +
+              (email_invite ? `\nEmail Invite: ${email_invite}` : '')
+            );
 
             res.json({ success: true, message: 'Order berhasil dibuat! Tunggu konfirmasi.', data: order });
         } catch (error) {
             logger.error('Order error: ' + error.message);
+            telegramBot.logEvent(
+              'Order Error',
+              `User ID: ${req.userId}\nError: ${error.message}`
+            );
+
             // Expose user-facing errors (balance / variant not found), but not raw DB errors
             const safeMessages = ['Saldo tidak cukup', 'Variant tidak ditemukan', 'User tidak ditemukan', 'Pesanan gagal diproses'];
             const isSafe = safeMessages.some(m => error.message.startsWith(m));
@@ -158,6 +183,7 @@ const orderController = {
 
             // If account details already exist, return them
             if (order.account_details) {
+                logger.info(`✅ Account details found in DB for ${order_id}`);
                 const details = typeof order.account_details === 'string' 
                     ? JSON.parse(order.account_details) 
                     : order.account_details;
@@ -165,17 +191,51 @@ const orderController = {
             }
 
             // Otherwise, try to fetch from WR API
+            logger.info(`🔄 Fetching account details from WR API for ${order_id}`);
             const accountDetails = await Order.fetchAccountDetailsFromWR(order_id);
             if (accountDetails) {
                 // Save for future use
+                logger.info(`💾 Saving account details for ${order_id}`);
                 await Order.setAccountDetails(order_id, accountDetails);
+                logger.info(`✅ Account details saved for ${order_id}`);
                 return res.json({ success: true, data: accountDetails });
             }
 
+            logger.warn(`⚠️ Account details not available for ${order_id}`);
             res.json({ success: false, message: 'Detail akun belum tersedia', data: null });
         } catch (error) {
             logger.error('getAccountDetails error: ' + error.message);
             res.status(500).json({ success: false, message: 'Gagal mengambil detail akun.' });
+        }
+    },
+
+    async saveAccountDetails(req, res) {
+        try {
+            const { order_id } = req.params;
+            const { account_details } = req.body;
+
+            if (!account_details || typeof account_details !== 'object' || Object.keys(account_details).length === 0) {
+                return res.status(400).json({ success: false, message: 'account_details tidak valid' });
+            }
+
+            const order = await Order.getOrderById(order_id);
+            if (!order) {
+                return res.status(404).json({ success: false, message: 'Order tidak ditemukan' });
+            }
+
+            logger.info(`💾 Admin saving account details for ${order_id}`);
+            await Order.setAccountDetails(order_id, account_details);
+            logger.info(`✅ Account details manually saved for ${order_id}`);
+
+            telegramBot.logEvent(
+                'Account Details Saved',
+                `Order ID: ${order_id}\nSaved by: ${req.userEmail || req.userId}\nDetails: ${Object.keys(account_details).length} fields`
+            );
+
+            res.json({ success: true, message: 'Account details berhasil disimpan', data: account_details });
+        } catch (error) {
+            logger.error('saveAccountDetails error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal menyimpan account details.' });
         }
     }
 };

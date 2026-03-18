@@ -3,6 +3,7 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const logger = require('../services/logger');
+const telegramBot = require('../services/telegramBot');
 
 // Cookie options — httpOnly prevents XSS token theft
 const COOKIE_OPTS = {
@@ -62,6 +63,13 @@ const authController = {
                 message: 'Registration successful',
                 data: { userId }
             });
+
+            // Notify admin via Telegram about new user registration
+            telegramBot.logEvent(
+              'New User Registered',
+              `User ID: ${userId}\nUsername: ${username}\nEmail: ${email}` +
+              (ref ? `\nReferred by: ${ref}` : '')
+            );
         } catch (error) {
             logger.error('Register error: ' + error.message);
             res.status(500).json({ success: false, message: 'Gagal mendaftar, coba lagi.' });

@@ -6,21 +6,47 @@ const logger = require('../services/logger');
 const webhookController = {
     async handleWebhook(req, res) {
         try {
-            // Reject immediately if signature header is absent
-            const signature = req.headers['http_x_premiy_signature'];
-            if (!signature || typeof signature !== 'string') {
-                return res.status(401).json({ success: false, message: 'Unauthorized' });
+            logger.info('📥 Webhook request received');
+
+            // Get raw body (should be Buffer when using express.raw())
+            let rawBody;
+            if (Buffer.isBuffer(req.body)) {
+                rawBody = req.body;
+                logger.debug(`Raw body (buffer): ${rawBody.toString().substring(0, 100)}...`);
+            } else if (typeof req.body === 'string') {
+                rawBody = Buffer.from(req.body, 'utf8');
+                logger.debug(`Raw body (string): ${req.body.substring(0, 100)}...`);
+            } else {
+                logger.warn('⚠️ Body is not buffer or string, trying to convert...');
+                rawBody = Buffer.from(JSON.stringify(req.body), 'utf8');
             }
 
-            const payload = JSON.stringify(req.body);
-            const secret  = process.env.WR_API_KEY;
+            // Check all possible signature header formats WR might use
+            let signature = req.headers['http_x_premiy_signature'] 
+                         || req.headers['x-premiy-signature']
+                         || req.headers['x-signature']
+                         || req.headers['signature']
+                         || req.headers['x-warung-signature'];
 
+            if (!signature || typeof signature !== 'string') {
+                logger.warn('⚠️ Webhook signature header not found. Available headers:', Object.keys(req.headers));
+                return res.status(401).json({ success: false, message: 'Missing signature header' });
+            }
+
+            logger.info(`✓ Signature found: ${signature.substring(0, 20)}...`);
+
+            const secret = process.env.WR_API_KEY;
+            
+            // Calculate signature from raw body
             const expected = crypto
                 .createHmac('sha256', secret)
-                .update(payload)
+                .update(rawBody)
                 .digest('hex');
 
-            // timingSafeEqual requires equal-length Buffers — compare hex strings (same length by construction)
+            logger.debug(`Expected: ${expected.substring(0, 20)}...`);
+            logger.debug(`Got:      ${signature.substring(0, 20)}...`);
+
+            // timingSafeEqual requires equal-length Buffers
             const expectedBuf  = Buffer.from(expected,  'utf8');
             const signatureBuf = Buffer.from(signature, 'utf8');
 
@@ -29,17 +55,45 @@ const webhookController = {
                 crypto.timingSafeEqual(expectedBuf, signatureBuf);
 
             if (!isValid) {
+                logger.error(`❌ Invalid signature! (len: ${expectedBuf.length} vs ${signatureBuf.length})`);
                 return res.status(401).json({ success: false, message: 'Invalid signature' });
             }
 
-            const { event, data } = req.body;
-            await Order.updateFromWebhook(event, data);
+            logger.info('✅ Signature validated');
 
-            logger.info(`WR Webhook received: ${event} — order ${data?.order_id}`);
+            // Now parse the body
+            let data;
+            try {
+                data = JSON.parse(rawBody.toString('utf8'));
+            } catch (e) {
+                logger.error('❌ Failed to parse JSON:', e.message);
+                return res.status(400).json({ success: false, message: 'Invalid JSON in body' });
+            }
+
+            const { event, data: webhookData } = data;
+            logger.info(`🔄 Processing webhook: event=${event}, order=${webhookData?.order_id}`);
+            
+            await Order.updateFromWebhook(event, webhookData);
+
+            logger.info(`✅ Order updated: ${webhookData?.order_id}`);
+            
+            const telegramBot = require('../services/telegramBot');
+            telegramBot.logEvent(
+              '✅ WR Webhook Received',
+              `Event: ${event}\nOrder ID: ${webhookData?.order_id}\nStatus: ${webhookData?.status || 'N/A'}\nHas Details: ${!!webhookData?.account_details}`
+            );
 
             res.json({ success: true, message: 'Webhook processed successfully' });
         } catch (error) {
-            logger.error('Webhook error: ' + error.message);
+            logger.error('❌ Webhook error: ' + error.message);
+            logger.error(error.stack);
+            
+            const telegramBot = require('../services/telegramBot');
+            telegramBot.logEvent(
+              '❌ Webhook Error',
+              `Error: ${error.message}`
+            );
+            
             res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
         }
     }

@@ -18,6 +18,7 @@ const topupRoutes      = require('./routes/topupRoutes');
 const withdrawalRoutes = require('./routes/withdrawalRoutes');
 const supportRoutes    = require('./routes/supportRoutes');
 const affiliateRoutes  = require('./routes/affiliateRoutes');
+const logRoutes        = require('./routes/logRoutes');
 const authMiddleware   = require('./middleware/auth');
 const telegramBot      = require('./services/telegramBot');
 
@@ -43,8 +44,12 @@ app.use(cors({
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cookieParser());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+
+// ── Webhook: Capture raw body BEFORE parsing for signature verification ───────
+app.use('/api/webhook', express.raw({ type: 'application/json' }));
+
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── HTTP request logging ──────────────────────────────────────────────────────
@@ -85,6 +90,7 @@ app.use('/api/topup',      topupRoutes);
 app.use('/api/withdrawal', withdrawalRoutes);
 app.use('/api/support',    supportRoutes);
 app.use('/api/affiliate',  affiliateRoutes);
+app.use('/api/logs',       logRoutes);
 
 // Expose Telegram bot link
 app.get('/api/bot-info', (req, res) => {
