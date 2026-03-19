@@ -8,11 +8,13 @@ const authMiddleware = require('../middleware/auth');
 router.post('/create', authMiddleware.verifyToken, WithdrawalController.createWithdrawal);
 router.get('/history', authMiddleware.verifyToken, WithdrawalController.getWithdrawalHistory);
 
-// Admin routes (will add admin middleware later)
-router.get('/admin/all', authMiddleware.verifyToken, WithdrawalController.getAllWithdrawals);
-router.get('/admin/stats', authMiddleware.verifyToken, WithdrawalController.getWithdrawalStats);
-router.patch('/admin/approve/:id', authMiddleware.verifyToken, WithdrawalController.approveWithdrawal);
-router.patch('/admin/reject/:id', authMiddleware.verifyToken, WithdrawalController.rejectWithdrawal);
-router.patch('/admin/complete/:id', authMiddleware.verifyToken, WithdrawalController.completeWithdrawal);
+// Admin routes
+router.get('/admin/all', authMiddleware.verifyToken, authMiddleware.isAdmin, WithdrawalController.getAllWithdrawals);
+router.get('/admin/stats', authMiddleware.verifyToken, authMiddleware.isAdmin, WithdrawalController.getWithdrawalStats);
+router.patch('/admin/approve/:id', authMiddleware.verifyToken, authMiddleware.isAdmin, WithdrawalController.approveWithdrawal);
+router.patch('/admin/reject/:id', authMiddleware.verifyToken, authMiddleware.isAdmin, WithdrawalController.rejectWithdrawal);
+router.patch('/admin/complete/:id', authMiddleware.verifyToken, authMiddleware.isAdmin, WithdrawalController.completeWithdrawal);
+router.get('/settings', authMiddleware.verifyToken, WithdrawalController.getSettings);
+router.patch('/settings', authMiddleware.verifyToken, authMiddleware.isAdmin, WithdrawalController.updateSettings);
 
 module.exports = router;

@@ -9,7 +9,7 @@
 
 -- Custom type untuk transaction type
 DO $$ BEGIN
-    CREATE TYPE transaction_type AS ENUM ('topup', 'purchase', 'profit');
+    CREATE TYPE transaction_type AS ENUM ('topup', 'purchase', 'profit', 'withdrawal');
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;

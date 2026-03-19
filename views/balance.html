@@ -477,7 +477,7 @@
         </div>
         <ul style="font-size:0.75rem; color:var(--muted); margin:0; padding-left:1.3rem; line-height:1.7;">
           <li data-i18n="bal_withdraw_min">Minimum penarikan: Rp 50.000</li>
-          <li data-i18n="bal_withdraw_fee">Admin fee: 10% dari jumlah penarikan</li>
+        <li id="withdrawFeeInfo" data-i18n="bal_withdraw_fee"></li>
           <li data-i18n="bal_withdraw_deduct">Saldo akan dipotong saat request dan dikembalikan jika ditolak</li>
           <li data-i18n="bal_withdraw_time">Proses 1-3 hari kerja setelah persetujuan admin</li>
         </ul>
@@ -564,7 +564,9 @@
 
   let isAdmin    = false;
   let allOrders  = [];
+  let allTransactions = [];
   let activeFilter = 'all';
+  let withdrawalAdminFeePercent = 10;
 
   document.addEventListener('DOMContentLoaded', () => {
     loadAll();
@@ -580,6 +582,7 @@
 
   async function loadAll() {
     await loadProfile();
+    await loadWithdrawalSettings();
     await loadHistory();
   }
 
@@ -641,6 +644,20 @@
     }
   }
 
+  async function loadWithdrawalSettings() {
+    try {
+      const res = await fetch('/api/withdrawal/settings', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success && data.data) {
+        withdrawalAdminFeePercent = parseFloat(data.data.admin_fee_percent) || withdrawalAdminFeePercent;
+      }
+    } catch (error) {
+      console.error('Load withdrawal settings error:', error);
+    } finally {
+      updateWithdrawFeeInfo();
+    }
+  }
+
   function goToPendingInvoice() {
     if (pendingTopupOrderId) {
       window.location.href = `/invoice?order_id=${pendingTopupOrderId}`;
@@ -682,17 +699,98 @@
   /* ── History ── */
   async function loadHistory() {
     hide('txList'); hide('emptyState'); show('loadWrap');
+    allTransactions = [];
     try {
-      const r = await fetch('/api/orders/history', { credentials: 'include' });
-      const d = await r.json();
-      if (!d.success) throw new Error(d.message);
-      allOrders = d.data;
+      const [ordersRes, withdrawalRes] = await Promise.all([
+        fetch('/api/orders/history', { credentials: 'include' }),
+        fetch('/api/withdrawal/history', { credentials: 'include' }).catch(() => null)
+      ]);
+      const ordersData = await ordersRes.json();
+      const withdrawalData = withdrawalRes ? await withdrawalRes.json().catch(() => null) : null;
+      if (!ordersData.success) throw new Error(ordersData.message || 'Gagal memuat riwayat order');
+      allOrders = ordersData.data || [];
+      const withdrawals = (withdrawalData && withdrawalData.success) ? withdrawalData.data : [];
+      allTransactions = buildTransactionRecords(allOrders, withdrawals);
       updateMetrics(allOrders);
-      renderTxList(allOrders);
+      renderTxList(getFilteredTransactions(activeFilter));
     } catch (err) {
       hide('loadWrap');
-      toast(t('bal_load_fail') + err.message, 'error');
+      toast(t('bal_load_fail') + (err.message || ''), 'error');
     }
+  }
+
+  function buildTransactionRecords(orders, withdrawals) {
+    const records = [];
+    (orders || []).forEach(order => records.push(createOrderRecord(order)));
+    (withdrawals || []).forEach(withdrawal => records.push(createWithdrawalRecord(withdrawal)));
+    return records.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  function createOrderRecord(order) {
+    return {
+      txType: 'order',
+      status: order.status,
+      filterGroup: mapStatusToGroup(order.status, 'order'),
+      created_at: order.created_at,
+      amount: Number(order.our_total || 0),
+      product_name: order.product_name || t('bal_tx_product_digital'),
+      variant_name: order.variant_name || '',
+      order_id: order.order_id,
+      original_total: Number(order.original_total || 0),
+      meta: order.buyer_whatsapp ? `WA ${order.buyer_whatsapp}` : '',
+      profit: Number(order.profit || 0),
+      notes: ''
+    };
+  }
+
+  function createWithdrawalRecord(withdrawal) {
+    const detailPieces = [withdrawal.bank_name, withdrawal.account_number, withdrawal.account_name].filter(Boolean);
+    const bankDetail = detailPieces.join(' • ');
+    const approvedBy = withdrawal.approved_by_username
+      ? t('bal_withdraw_approved_by').replace('{who}', withdrawal.approved_by_username)
+      : '';
+    const isRejected = withdrawal.status === 'rejected';
+    const rejectionReason = (withdrawal.rejected_reason || '').trim();
+    const noteParts = [];
+    if (withdrawal.notes) noteParts.push(withdrawal.notes);
+    if (rejectionReason) noteParts.push(t('bal_withdraw_rejected_reason').replace('{reason}', rejectionReason));
+    const metaLabel = isRejected
+      ? (withdrawal.approved_by_username
+          ? t('bal_withdraw_rejected_by').replace('{who}', withdrawal.approved_by_username)
+          : t('bal_withdraw_rejected'))
+      : approvedBy;
+    return {
+      txType: 'withdrawal',
+      status: withdrawal.status,
+      filterGroup: mapStatusToGroup(withdrawal.status, 'withdrawal'),
+      created_at: withdrawal.created_at,
+      amount: Number(withdrawal.amount || 0),
+      product_name: t('bal_withdraw_title'),
+      variant_name: bankDetail || t('bal_withdraw_bank'),
+      order_id: `WD#${withdrawal.id}`,
+      meta: metaLabel,
+      notes: noteParts.join(' • ')
+    };
+  }
+
+  function mapStatusToGroup(status, type) {
+    if (type === 'withdrawal') {
+      if (status === 'completed') return 'success';
+      if (status === 'rejected') return 'failed';
+      return 'pending';
+    }
+    const success = ['success', 'completed', 'done'];
+    const pending = ['pending', 'processing', 'approved'];
+    const failed = ['failed', 'rejected', 'cancelled', 'expired'];
+    if (success.includes(status)) return 'success';
+    if (pending.includes(status)) return 'pending';
+    return 'failed';
+  }
+
+  function getFilteredTransactions(filter) {
+    if (!allTransactions.length) return [];
+    if (filter === 'all') return allTransactions;
+    return allTransactions.filter(record => record.filterGroup === filter);
   }
 
   /* ── Metrics ── */
@@ -702,7 +800,7 @@
     const avg     = orders.length ? profit / orders.length : 0;
     document.getElementById('statSpent').textContent    = 'Rp ' + spent.toLocaleString('id-ID');
     document.getElementById('statOrders').textContent   = orders.length;
-    const successCount = orders.filter(o => ['success','completed'].includes(o.status)).length;
+    const successCount = orders.filter(o => ['success','completed','done'].includes(o.status)).length;
     document.getElementById('statOrdersSub').textContent = successCount + ' ' + t('bal_stat_success_count');
     if (isAdmin) {
       document.getElementById('statProfit').textContent    = 'Rp ' + profit.toLocaleString('id-ID');
@@ -715,14 +813,7 @@
     activeFilter = filter;
     document.querySelectorAll('.tx-filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    const filtered = filter === 'all'
-      ? allOrders
-      : allOrders.filter(o => {
-          if (filter === 'success') return ['success','completed'].includes(o.status);
-          if (filter === 'pending') return ['pending','processing'].includes(o.status);
-          return o.status === filter;
-        });
-    renderTxList(filtered);
+    renderTxList(getFilteredTransactions(filter));
   }
 
   /* ── Render transaction list ── */
@@ -738,12 +829,13 @@
     };
   }
 
-  function renderTxList(orders) {
+  function renderTxList(records) {
     hide('loadWrap');
     const list = document.getElementById('txList');
-    document.getElementById('txCountBadge').textContent = orders.length;
+    const items = records || [];
+    document.getElementById('txCountBadge').textContent = items.length;
 
-    if (!orders.length) {
+    if (!items.length) {
       list.style.display = 'none';
       show('emptyState');
       return;
@@ -751,29 +843,32 @@
     hide('emptyState');
     show('txList');
 
-    // Group by date
     const groups = {};
-    orders.forEach(o => {
-      const dt = new Date(o.created_at);
+    items.forEach(item => {
+      const dt = new Date(item.created_at);
       const key = dt.toLocaleDateString('id-ID', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
       if (!groups[key]) groups[key] = [];
-      groups[key].push(o);
+      groups[key].push(item);
     });
 
     let html = '';
     const STATUS_MAP = getStatusMap();
-    Object.entries(groups).forEach(([date, items]) => {
+    Object.entries(groups).forEach(([date, records]) => {
       html += `<div class="tx-divider">${esc(date)}</div>`;
-      items.forEach(o => {
-        const s   = STATUS_MAP[o.status] || { icon: '📦', cls: 'status-default', badge: 'badge-muted', label: esc(o.status) };
-        const amt = Number(o.our_total || 0);
-        const isFailed = o.status === 'failed';
-        const dt  = new Date(o.created_at).toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' });
+      records.forEach(record => {
+        const s = STATUS_MAP[record.status] || { icon: 'ðŸ“¦', cls: 'status-default', badge: 'badge-muted', label: esc(record.status) };
+        const amt = Number(record.amount || 0);
+        const isFailed = record.filterGroup === 'failed';
+        const dt = new Date(record.created_at).toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' });
+        const isWithdrawal = record.txType === 'withdrawal';
+        const variantLabel = record.variant_name || (isWithdrawal ? t('bal_withdraw_bank') : t('bal_tx_product_digital'));
+        const metaLine = record.meta ? `<span class="tx-meta-sep">Â·</span><span>${esc(record.meta)}</span>` : '';
+        const notesHtml = record.notes ? `<div class="tx-note">${esc(record.notes)}</div>` : '';
 
-        // Admin profit expansion
-        const profitVal  = parseFloat(o.profit || 0);
-        const modalVal   = Number(o.original_total || 0);
-        const adminRows  = isAdmin ? `
+        const profitVal = Number(record.profit || 0);
+        const modalVal = Number(record.original_total || 0);
+        const showAdminRows = isAdmin && !isWithdrawal;
+        const adminRows = showAdminRows ? `
           <div class="tx-profit-bar">
             <div class="tx-profit-item">
               <span class="tx-profit-lbl">${t('bal_tx_sell')}</span>
@@ -789,25 +884,26 @@
             </div>
           </div>
         ` : '';
-
-        const expandBtn = isAdmin ? `<button class="tx-expand-btn" style="display:inline-flex;" onclick="toggleExpand(this.closest('.tx-row'))" title="${t('bal_tx_detail_profit')}">▾</button>` : '';
+        const expandBtn = showAdminRows ? `<button class="tx-expand-btn" style="display:inline-flex;" onclick="toggleExpand(this.closest('.tx-row'))" title="${t('bal_tx_detail_profit')}">â–¾</button>` : '';
+        const rowOnclick = showAdminRows ? 'toggleExpand(this)' : 'void(0)';
 
         html += `
-          <div class="tx-row${isAdmin ? '' : ''}" onclick="${isAdmin ? 'toggleExpand(this)' : 'void(0)'}">
+          <div class="tx-row" onclick="${rowOnclick}">
             <div class="tx-ico ${s.cls}">${s.icon}</div>
             <div class="tx-mid">
-              <div class="tx-name">${esc(o.product_name || '—')}</div>
+              <div class="tx-name">${esc(record.product_name || 'â€”')}</div>
               <div class="tx-meta">
-                <span>${esc(o.variant_name || t('bal_tx_product_digital'))}</span>
-                ${isAdmin ? `<span class="tx-meta-sep">·</span><span class="badge ${s.badge}" style="font-size:0.65rem;">${s.label}</span>` : ''}
+                <span>${esc(variantLabel)}</span>
+                ${metaLine}
               </div>
-              <div class="tx-order-id">${esc(o.order_id)}</div>
+              <div class="tx-order-id">${esc(record.order_id || 'â€”')}</div>
+              ${notesHtml}
               ${adminRows}
             </div>
             <div class="tx-right">
               <div class="tx-amt${isFailed ? ' failed' : ''}">Rp ${amt.toLocaleString('id-ID')}</div>
               <div class="tx-date">${dt}</div>
-              ${!isAdmin ? `<div class="tx-status-badge"><span class="badge ${s.badge}" style="font-size:0.65rem;">${s.label}</span></div>` : expandBtn}
+              ${showAdminRows ? expandBtn : `<div class="tx-status-badge"><span class="badge ${s.badge}" style="font-size:0.65rem;">${s.label}</span></div>`}
             </div>
           </div>`;
       });
@@ -815,7 +911,6 @@
 
     list.innerHTML = html;
   }
-
   function toggleExpand(row) {
     if (!isAdmin) return;
     row.classList.toggle('expanded');
@@ -922,10 +1017,11 @@
     }
 
     // Calculate admin fee
-    const adminFee = Math.ceil(amount * 10 / 100);
+    const adminFee = Math.ceil(amount * withdrawalAdminFeePercent / 100);
     const netAmount = amount - adminFee;
+    const confirmFeeLabel = t('bal_withdraw_confirm_fee').replace('{fee}', withdrawalAdminFeePercent);
 
-    const confirmed = confirm(`${t('bal_withdraw_confirm_title')}\n\n${t('bal_withdraw_confirm_amount')}: Rp ${amount.toLocaleString('id-ID')}\n${t('bal_withdraw_confirm_fee')}: Rp ${adminFee.toLocaleString('id-ID')}\n${t('bal_withdraw_confirm_net')}: Rp ${netAmount.toLocaleString('id-ID')}\n\n${t('bal_withdraw_confirm_note')}\n\n${t('bal_withdraw_confirm_go')}`);
+    const confirmed = confirm(`${t('bal_withdraw_confirm_title')}\n\n${t('bal_withdraw_confirm_amount')}: Rp ${amount.toLocaleString('id-ID')}\n${confirmFeeLabel}: Rp ${adminFee.toLocaleString('id-ID')}\n${t('bal_withdraw_confirm_net')}: Rp ${netAmount.toLocaleString('id-ID')}\n\n${t('bal_withdraw_confirm_note')}\n\n${t('bal_withdraw_confirm_go')}`);
     
     if (!confirmed) return;
 
@@ -955,6 +1051,7 @@
         document.getElementById('withdrawAccountName').value = '';
         document.getElementById('withdrawNotes').value = '';
         await loadProfile();
+        await loadHistory();
         toast(t('bal_withdraw_success'), 'success');
       } else {
         showAlert(alertEl, 'danger', d.message);
@@ -975,7 +1072,7 @@
       withdrawAmountInput.addEventListener('input', () => {
         const amount = parseInt(withdrawAmountInput.value);
         if (amount && amount >= 50000) {
-          const adminFee = Math.ceil(amount * 10 / 100);
+          const adminFee = Math.ceil(amount * withdrawalAdminFeePercent / 100);
           const netAmount = amount - adminFee;
           withdrawHint.innerHTML = `<span style="color:var(--green);">✓</span> ${t('bal_withdraw_hint_fee')}: Rp ${adminFee.toLocaleString('id-ID')} | ${t('bal_withdraw_hint_net')}: <strong>Rp ${netAmount.toLocaleString('id-ID')}</strong>`;
           withdrawHint.style.display = 'block';
@@ -1008,10 +1105,19 @@
     setTimeout(() => el.remove(), 3800);
   }
 
+  function updateWithdrawFeeInfo() {
+    const feeEl = document.getElementById('withdrawFeeInfo');
+    if (!feeEl) return;
+    const template = t('bal_withdraw_fee');
+    const feeText = template.replace('{fee}', withdrawalAdminFeePercent);
+    feeEl.textContent = feeText;
+  }
+
   // Re-render on language change
   document.addEventListener('langChanged', () => {
     applyTranslations();
-    if (allOrders.length) renderTxList(allOrders);
+    updateWithdrawFeeInfo();
+    if (allTransactions.length) renderTxList(getFilteredTransactions(activeFilter));
   });
 </script>
 <script src="/js/translations.js"></script>

@@ -257,26 +257,24 @@
   <script>
   // Tampilkan iklan setelah pengumuman ditutup
 
+  const storedAdLang = localStorage.getItem('lang') || 'id';
   let adsData = null;
-  fetch('/api/ads/settings')
-    .then(r => r.json())
-    .then(data => {
-      if (data && data.title) {
-        adsData = data;
-      }
-    });
+  let adsLang = storedAdLang;
 
-  function showAdsModal() {
-    if (!adsData) return;
-    // Banner partnership
-    document.getElementById('adsBanner').style.background = adsData.partnership_color || '#2563eb';
-    document.getElementById('adsBannerText').textContent = adsData.partnership_text || 'BINGX PARTNERSHIP';
-    // Judul
-    document.getElementById('adsTitle').children[1].textContent = adsData.title;
-    // YouTube embed
+  function htmlFromContent(ad) {
+    if (ad.content_html) return ad.content_html;
+    if (ad.content) return ad.content.replace(/\\n/g, '<br>');
+    return '';
+  }
+
+  function populateAdModal(data) {
+    if (!data) return;
+    document.getElementById('adsBanner').style.background = data.partnership_color || '#2563eb';
+    document.getElementById('adsBannerText').textContent = data.partnership_text || 'BINGX PARTNERSHIP';
+    document.getElementById('adsTitle').children[1].textContent = data.title;
     const ytDiv = document.getElementById('adsYoutube');
-    if (adsData.youtube_url) {
-      const embedUrl = adsData.youtube_url.replace('watch?v=', 'embed/');
+    if (data.youtube_url) {
+      const embedUrl = data.youtube_url.replace('watch?v=', 'embed/');
       ytDiv.innerHTML = `
         <div class="ads-video-wrapper">
           <iframe src="${embedUrl}" frameborder="0" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>
@@ -287,18 +285,43 @@
       ytDiv.innerHTML = '';
       ytDiv.style.display = 'none';
     }
-    // Konten HTML
-    document.getElementById('adsContentHtml').innerHTML = adsData.content_html || '';
-    // Tombol promo
+    document.getElementById('adsContentHtml').innerHTML = htmlFromContent(data);
     const joinBtn = document.getElementById('adsJoinBtn');
-    if (adsData.promo_link) {
-      joinBtn.href = adsData.promo_link;
+    if (data.promo_link) {
+      joinBtn.href = data.promo_link;
       joinBtn.style.display = 'inline-block';
     } else {
       joinBtn.style.display = 'none';
     }
+  }
+
+  async function loadAdSettings(lang = storedAdLang) {
+    try {
+      const res = await fetch(`/api/ads/settings?lang=${encodeURIComponent(lang)}`);
+      const data = await res.json();
+      if (data && data.title) {
+        adsData = data;
+        adsLang = lang;
+        populateAdModal(data);
+      }
+    } catch (err) {
+      console.error('Load ads settings failed:', err);
+    }
+  }
+
+  loadAdSettings(storedAdLang);
+  document.addEventListener('langChanged', event => {
+    const newLang = (event && event.detail && event.detail.lang) || localStorage.getItem('lang') || 'id';
+    if (newLang === adsLang) return;
+    loadAdSettings(newLang);
+  });
+
+  function showAdsModal() {
+    if (!adsData) return;
+    populateAdModal(adsData);
     document.getElementById('adsModal').style.display = 'flex';
   }
+
   document.getElementById('adsClose').onclick = function() {
     document.getElementById('adsModal').style.display = 'none';
   };

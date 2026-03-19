@@ -9,6 +9,7 @@ const rateLimit  = require('express-rate-limit');
 require('dotenv').config();
 
 const logger = require('./services/logger');
+const db = require('./config/database');
 
 const authRoutes       = require('./routes/authRoutes');
 const productRoutes    = require('./routes/productRoutes');
@@ -23,6 +24,70 @@ const authMiddleware   = require('./middleware/auth');
 const telegramBot      = require('./services/telegramBot');
 
 const app = express();
+
+async function ensureTransactionTypeIncludesWithdrawal() {
+    try {
+        await db.query(`
+            DO $$ BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_enum
+                    WHERE enumlabel = 'withdrawal'
+                      AND enumtypid = 'transaction_type'::regtype
+                ) THEN
+                    ALTER TYPE transaction_type ADD VALUE 'withdrawal';
+                END IF;
+            END $$;
+        `);
+        logger.info('Ensured transaction_type enum includes withdrawal');
+    } catch (err) {
+        logger.warn('Could not verify transaction_type enum: ' + err.message);
+    }
+}
+
+async function ensureWithdrawalSettingsTable() {
+    try {
+        await db.query(`
+            CREATE OR REPLACE FUNCTION update_updated_at_column()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                NEW.updated_at = NOW();
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS withdrawal_settings (
+                id SMALLINT PRIMARY KEY DEFAULT 1,
+                admin_fee_percent DECIMAL(5,2) NOT NULL DEFAULT 10.00,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        await db.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM withdrawal_settings WHERE id = 1) THEN
+                    INSERT INTO withdrawal_settings (id) VALUES (1);
+                END IF;
+            END $$;
+        `);
+
+        await db.query('DROP TRIGGER IF EXISTS update_withdrawal_settings_updated ON withdrawal_settings');
+
+        await db.query(`
+            CREATE TRIGGER update_withdrawal_settings_updated
+                BEFORE UPDATE ON withdrawal_settings
+                FOR EACH ROW
+                EXECUTE FUNCTION update_updated_at_column();
+        `);
+
+        logger.info('Ensured withdrawal_settings table + trigger exist');
+    } catch (err) {
+        logger.warn('Could not ensure withdrawal_settings table: ' + err.message);
+    }
+}
 
 // Trust proxy — required for Railway / Heroku (rate-limit real IP detection)
 app.set('trust proxy', 1);
@@ -185,7 +250,6 @@ app.get('/api/bot-info', (req, res) => {
 // Health check — verifies DB connectivity
 app.get('/api/health', async (req, res) => {
     try {
-        const db = require('./config/database');
         await db.query('SELECT 1', []);
         res.json({
             success:   true,
@@ -240,6 +304,9 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
     const useWebhook = process.env.TELEGRAM_USE_WEBHOOK === 'true';
 
+    await ensureTransactionTypeIncludesWithdrawal();
+    await ensureWithdrawalSettingsTable();
+
     if (useWebhook && process.env.APP_URL) {
         await telegramBot.setWebhook(`${process.env.APP_URL}/api/telegram/webhook`);
     } else {
@@ -255,7 +322,6 @@ app.listen(PORT, async () => {
 
     // ── BACKGROUND TASK: Auto-fetch WR account details for pending orders ──────
     const Order = require('./models/Order');
-    const db = require('./config/database');
     const lockManager = require('./services/lockManager');
 
     setInterval(async () => {

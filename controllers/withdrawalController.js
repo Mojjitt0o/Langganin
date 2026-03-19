@@ -1,6 +1,8 @@
 // controllers/withdrawalController.js
 const db = require('../config/database');
 const logger = require('../services/logger');
+const telegramBot = require('../services/telegramBot');
+const WithdrawalSettings = require('../models/WithdrawalSettings');
 require('dotenv').config();
 
 class WithdrawalController {
@@ -27,7 +29,7 @@ class WithdrawalController {
 
             // Get user balance
             const [userRows] = await db.query(
-                'SELECT balance FROM users WHERE id = $1',
+                'SELECT id, username, email, balance FROM users WHERE id = $1',
                 [userId]
             );
 
@@ -38,7 +40,8 @@ class WithdrawalController {
                 });
             }
 
-            const userBalance = parseFloat(userRows[0].balance);
+            const user = userRows[0];
+            const userBalance = parseFloat(user.balance);
 
             // Check if balance sufficient
             if (userBalance < amount) {
@@ -49,7 +52,8 @@ class WithdrawalController {
             }
 
             // Calculate admin fee and net amount
-            const adminFeePercent = parseFloat(process.env.WITHDRAWAL_ADMIN_FEE) || 10;
+            const withdrawalSettings = await WithdrawalSettings.get();
+            const adminFeePercent = parseFloat(withdrawalSettings?.admin_fee_percent) || parseFloat(process.env.WITHDRAWAL_ADMIN_FEE) || 10;
             const adminFee = Math.ceil(amount * adminFeePercent / 100);
             const netAmount = amount - adminFee;
 
@@ -73,6 +77,18 @@ class WithdrawalController {
                  VALUES ($1, $2, $3, $4)`,
                 [userId, 'withdrawal', -amount, `Penarikan dana (ID: ${result[0].id})`]
             );
+
+            try {
+                await telegramBot.logEvent(
+                    'Withdrawal Request',
+                    `User: ${user.username || 'User'} (ID: ${userId})\n` +
+                    `Amount: Rp ${amount.toLocaleString('id-ID')} (admin fee ${adminFeePercent}% = Rp ${adminFee.toLocaleString('id-ID')})\n` +
+                    `Bank: ${bank_name} ${account_number} (${account_name})\n` +
+                    `Notes: ${notes || '-'}`
+                );
+            } catch (err) {
+                logger.warn('Withdrawal log notification failed: ' + err.message);
+            }
 
             res.json({
                 success: true,
@@ -117,6 +133,36 @@ class WithdrawalController {
                 success: false,
                 message: 'Gagal mengambil riwayat penarikan'
             });
+        }
+    }
+
+    static async getSettings(req, res) {
+        try {
+            const settings = await WithdrawalSettings.get();
+            res.json({ success: true, data: settings });
+        } catch (error) {
+            logger.error('Withdrawal settings get error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal mengambil pengaturan penarikan' });
+        }
+    }
+
+    static async updateSettings(req, res) {
+        try {
+            const { admin_fee_percent } = req.body;
+            if (typeof admin_fee_percent === 'undefined') {
+                return res.status(400).json({ success: false, message: 'Persentase fee wajib diisi' });
+            }
+
+            const fee = parseFloat(admin_fee_percent);
+            if (Number.isNaN(fee) || fee < 0) {
+                return res.status(400).json({ success: false, message: 'Persentase fee tidak valid' });
+            }
+
+            const settings = await WithdrawalSettings.update({ admin_fee_percent: fee });
+            res.json({ success: true, data: settings, message: 'Pengaturan penarikan diperbarui' });
+        } catch (error) {
+            logger.error('Withdrawal settings update error: ' + error.message);
+            res.status(500).json({ success: false, message: 'Gagal menyimpan pengaturan penarikan' });
         }
     }
 
@@ -173,7 +219,10 @@ class WithdrawalController {
 
             // Get withdrawal
             const [rows] = await db.query(
-                'SELECT * FROM withdrawals WHERE id = $1',
+                `SELECT w.*, u.username, u.email 
+                 FROM withdrawals w
+                 LEFT JOIN users u ON w.user_id = u.id
+                 WHERE w.id = $1`,
                 [id]
             );
 
@@ -200,6 +249,25 @@ class WithdrawalController {
                  WHERE id = $3`,
                 ['approved', adminId, id]
             );
+
+            try {
+                const userLabel = withdrawal.username
+                    ? `${withdrawal.username} (ID:${withdrawal.user_id})`
+                    : `User ID ${withdrawal.user_id}`;
+                const msg = [
+                    `Withdrawal ID: ${withdrawal.id}`,
+                    `User: ${userLabel}`,
+                    `Amount: Rp ${Number(withdrawal.amount).toLocaleString('id-ID')}`,
+                    `Admin fee: Rp ${Number(withdrawal.admin_fee).toLocaleString('id-ID')}`,
+                    `Net amount: Rp ${Number(withdrawal.net_amount).toLocaleString('id-ID')}`,
+                    `Bank: ${withdrawal.bank_name} ${withdrawal.account_number} (${withdrawal.account_name})`,
+                    `Notes: ${withdrawal.notes || '-'}`,
+                    `Approved by: Admin ID ${adminId}`
+                ].join('\n');
+                await telegramBot.logEvent('Withdrawal Approved', msg);
+            } catch (err) {
+                logger.warn('Telegram log for withdrawal approval failed: ' + err.message);
+            }
 
             res.json({
                 success: true,
@@ -228,7 +296,10 @@ class WithdrawalController {
 
             // Get withdrawal
             const [rows] = await db.query(
-                'SELECT * FROM withdrawals WHERE id = $1',
+                `SELECT w.*, u.username, u.email 
+                 FROM withdrawals w
+                 LEFT JOIN users u ON w.user_id = u.id
+                 WHERE w.id = $1`,
                 [id]
             );
 
@@ -269,6 +340,23 @@ class WithdrawalController {
                 [withdrawal.user_id, 'topup', withdrawal.amount, `Pengembalian dana penarikan ditolak (ID: ${id})`]
             );
 
+            try {
+                const userLabel = withdrawal.username
+                    ? `${withdrawal.username} (ID:${withdrawal.user_id})`
+                    : `User ID ${withdrawal.user_id}`;
+                const msg = [
+                    `Withdrawal ID: ${withdrawal.id}`,
+                    `User: ${userLabel}`,
+                    `Amount: Rp ${Number(withdrawal.amount).toLocaleString('id-ID')}`,
+                    `Reason: ${rejected_reason}`,
+                    `Bank: ${withdrawal.bank_name} ${withdrawal.account_number} (${withdrawal.account_name})`,
+                    `Rejected by: Admin ID ${adminId}`
+                ].join('\n');
+                await telegramBot.logEvent('Withdrawal Rejected', msg);
+            } catch (err) {
+                logger.warn('Telegram log for withdrawal rejection failed: ' + err.message);
+            }
+
             res.json({ success: true, message: 'Permintaan penarikan ditolak. Saldo user dikembalikan.' });
 
         } catch (error) {
@@ -284,7 +372,10 @@ class WithdrawalController {
 
             // Get withdrawal
             const [rows] = await db.query(
-                'SELECT * FROM withdrawals WHERE id = $1',
+                `SELECT w.*, u.username, u.email 
+                 FROM withdrawals w
+                 LEFT JOIN users u ON w.user_id = u.id
+                 WHERE w.id = $1`,
                 [id]
             );
 
@@ -311,6 +402,23 @@ class WithdrawalController {
                  WHERE id = $2`,
                 ['completed', id]
             );
+
+            try {
+                const userLabel = withdrawal.username
+                    ? `${withdrawal.username} (ID:${withdrawal.user_id})`
+                    : `User ID ${withdrawal.user_id}`;
+                const msg = [
+                    `Withdrawal ID: ${withdrawal.id}`,
+                    `User: ${userLabel}`,
+                    `Amount: Rp ${Number(withdrawal.amount).toLocaleString('id-ID')}`,
+                    `Net amount: Rp ${Number(withdrawal.net_amount).toLocaleString('id-ID')}`,
+                    `Bank: ${withdrawal.bank_name} ${withdrawal.account_number} (${withdrawal.account_name})`,
+                    `Completed by: Admin ID ${adminId}`
+                ].join('\n');
+                await telegramBot.logEvent('Withdrawal Completed', msg);
+            } catch (err) {
+                logger.warn('Telegram log for withdrawal completion failed: ' + err.message);
+            }
 
             res.json({
                 success: true,
