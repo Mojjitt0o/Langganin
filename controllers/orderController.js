@@ -6,6 +6,12 @@ const axios = require('axios');
 const logger = require('../services/logger');
 const telegramBot = require('../services/telegramBot');
 
+function fireAndForgetLogEvent(title, details) {
+    telegramBot.logEvent(title, details).catch(err => {
+        logger.warn(`telegramBot.logEvent failed for "${title}": ${err.message}`);
+    });
+}
+
 const orderController = {
     async createOrder(req, res) {
         try {
@@ -36,7 +42,7 @@ const orderController = {
             const order = await Order.create({ variant_id, quantity: qty, voucher_code, email_invite, buyer_whatsapp }, userId);
 
             // Notify admin via Telegram about new order
-            telegramBot.logEvent(
+            fireAndForgetLogEvent(
               'New Order Created',
               `User ID: ${userId}\nEmail: ${req.userEmail || '-'}\nOrder ID: ${order.order_id}\nVariant: ${variant_id}\nQuantity: ${qty}` +
               (email_invite ? `\nEmail Invite: ${email_invite}` : '')
@@ -45,9 +51,12 @@ const orderController = {
             res.json({ success: true, message: 'Order berhasil dibuat! Tunggu konfirmasi.', data: order });
         } catch (error) {
             logger.error('Order error: ' + error.message);
-            telegramBot.logEvent(
+            if (error.stack) {
+                logger.error('Order error stack: ' + error.stack);
+            }
+            fireAndForgetLogEvent(
               'Order Error',
-              `User ID: ${req.userId}\nError: ${error.message}`
+              `User ID: ${req.userId}\nError: ${error.message}${error.code ? `\nCode: ${error.code}` : ''}`
             );
 
             // Expose user-facing errors (balance / variant not found), but not raw DB errors

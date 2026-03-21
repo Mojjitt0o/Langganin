@@ -126,6 +126,13 @@ railway variables set KEY=value
 - Railway otomatis set PORT environment variable
 - Server.js sudah dikonfigurasi: `const PORT = process.env.PORT || 3000`
 
+### Failed to create code snapshot
+- Jalankan deploy dari root project ini, bukan dari parent folder lain
+- Snapshot CLI sekarang dibatasi oleh `.railwayignore` agar file lokal seperti `tests/`, `node_modules/`, `.env`, log, dan file scratch tidak ikut terupload
+- Di Windows PowerShell, command `railway` bisa gagal karena Execution Policy. Jika itu terjadi, gunakan `npx @railway/cli up`, Command Prompt, atau set `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+- Tambahkan `--verbose` saat retry untuk melihat apakah gagalnya terjadi sebelum build dimulai: `railway up --verbose`
+- Jika error hanya muncul dari CLI tetapi deploy dari GitHub berhasil, gunakan GitHub deploy sebagai workaround karena itu melewati proses snapshot lokal
+
 ## Health Check
 
 Setelah deploy, test health endpoint:
@@ -166,5 +173,5 @@ Response sukses:
 
 ## Support
 
-Railway Documentation: https://docs.railway.app/
+Railway Documentation: https://docs.railway.com/
 Midtrans Documentation: https://docs.midtrans.com/

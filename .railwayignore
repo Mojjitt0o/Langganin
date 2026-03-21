@@ -1,0 +1,24 @@
+# Keep Railway CLI snapshots focused on runtime files only.
+.git/
+node_modules/
+.vscode/
+coverage/
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local-only configuration
+.env
+.env.*
+
+# Non-runtime docs and scratch files
+CHANGELOG*.md
+IMPLEMENTATION_*.md
+SETUP*.md
+WEBHOOK*_GUIDE.md
+tmp*.py
+
+# Test suite is not needed to boot the production app
+tests/

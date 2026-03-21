@@ -56,7 +56,7 @@ describe('Order.create referral discount flow', () => {
         db.pool.connect.mockResolvedValue(client);
     });
 
-    test('stores discounted total and discount_amount for referred users', async () => {
+    test('stores discounted total and updates profit after affiliate commission is recorded', async () => {
         db.query
             .mockResolvedValueOnce([[{ original_price: 10000, sell_price: 20000 }], []])
             .mockResolvedValueOnce([[{ balance: 50000, referred_by: 202 }], []]);
@@ -80,6 +80,8 @@ describe('Order.create referral discount flow', () => {
             .mockResolvedValueOnce({ rowCount: 1 })
             .mockResolvedValueOnce(undefined)
             .mockResolvedValueOnce(undefined)
+            .mockResolvedValueOnce(undefined)
+            .mockResolvedValueOnce(undefined)
             .mockResolvedValueOnce(undefined);
 
         const result = await Order.create({
@@ -93,7 +95,18 @@ describe('Order.create referral discount flow', () => {
         expect(client.query).toHaveBeenNthCalledWith(
             3,
             expect.stringContaining('INSERT INTO orders'),
-            ['ORD-123', 55, 'VAR-1', 1, 10000, 15000, 5000, 4000, 'processing', 'paid', null, '628123456789']
+            ['ORD-123', 55, 'VAR-1', 1, 10000, 15000, 5000, 'processing', 'paid', 5000, null, '628123456789']
+        );
+        expect(client.query).toHaveBeenNthCalledWith(4, 'SAVEPOINT affiliate_commission_sp');
+        expect(client.query).toHaveBeenNthCalledWith(
+            5,
+            'UPDATE orders SET profit = $1 WHERE order_id = $2',
+            [4000, 'ORD-123']
+        );
+        expect(client.query).toHaveBeenNthCalledWith(
+            7,
+            'INSERT INTO profits (order_id, user_id, amount) VALUES ($1, $2, $3)',
+            ['ORD-123', 55, 4000]
         );
         expect(result).toMatchObject({
             order_id: 'ORD-123',
@@ -134,6 +147,8 @@ describe('Order.create referral discount flow', () => {
             .mockRejectedValueOnce(missingColumnError)
             .mockResolvedValueOnce(undefined)
             .mockResolvedValueOnce(undefined)
+            .mockResolvedValueOnce(undefined)
+            .mockResolvedValueOnce(undefined)
             .mockResolvedValueOnce(undefined);
 
         const result = await Order.create({
@@ -145,18 +160,145 @@ describe('Order.create referral discount flow', () => {
         expect(client.query).toHaveBeenNthCalledWith(
             3,
             expect.stringContaining('discount_amount'),
-            ['ORD-LEGACY', 88, 'VAR-LEGACY', 1, 10000, 15000, 5000, 4000, 'processing', 'paid', null, '628123456789']
+            ['ORD-LEGACY', 88, 'VAR-LEGACY', 1, 10000, 15000, 5000, 'processing', 'paid', 5000, null, '628123456789']
         );
         expect(client.query).toHaveBeenNthCalledWith(
             4,
             expect.not.stringContaining('discount_amount'),
-            ['ORD-LEGACY', 88, 'VAR-LEGACY', 1, 10000, 15000, 4000, 'processing', 'paid', null, '628123456789']
+            ['ORD-LEGACY', 88, 'VAR-LEGACY', 1, 10000, 15000, 5000, 'processing', 'paid', null, '628123456789']
+        );
+        expect(client.query).toHaveBeenNthCalledWith(5, 'SAVEPOINT affiliate_commission_sp');
+        expect(client.query).toHaveBeenNthCalledWith(
+            6,
+            'UPDATE orders SET profit = $1 WHERE order_id = $2',
+            [4000, 'ORD-LEGACY']
         );
         expect(result).toMatchObject({
             order_id: 'ORD-LEGACY',
             our_total: 15000,
             charge_total: 15000,
-            discount_amount: 5000
+            discount_amount: 5000,
+            commission_amount: 1000,
+            profit: 4000
+        });
+    });
+
+    test('falls back across multiple missing optional order columns on older schemas', async () => {
+        db.query
+            .mockResolvedValueOnce([[{ original_price: 10000, sell_price: 20000 }], []])
+            .mockResolvedValueOnce([[{ balance: 50000, referred_by: null }], []]);
+
+        axios.post.mockResolvedValueOnce({
+            data: {
+                success: true,
+                data: {
+                    order_id: 'ORD-OLD-SCHEMA',
+                    status: 'processing',
+                    payment_status: 'paid'
+                }
+            }
+        });
+
+        const missingDiscountColumn = new Error('column "discount_amount" of relation "orders" does not exist');
+        missingDiscountColumn.code = '42703';
+
+        const missingVoucherColumn = new Error('column "voucher_code" of relation "orders" does not exist');
+        missingVoucherColumn.code = '42703';
+
+        client.query
+            .mockResolvedValueOnce(undefined)
+            .mockResolvedValueOnce({ rowCount: 1 })
+            .mockRejectedValueOnce(missingDiscountColumn)
+            .mockRejectedValueOnce(missingVoucherColumn)
+            .mockResolvedValueOnce(undefined)
+            .mockResolvedValueOnce(undefined)
+            .mockResolvedValueOnce(undefined);
+
+        const result = await Order.create({
+            variant_id: 'VAR-OLD',
+            quantity: 1,
+            voucher_code: 'HEMAT10',
+            buyer_whatsapp: '628123456789'
+        }, 77);
+
+        expect(client.query).toHaveBeenNthCalledWith(
+            3,
+            expect.stringContaining('discount_amount'),
+            ['ORD-OLD-SCHEMA', 77, 'VAR-OLD', 1, 10000, 20000, 10000, 'processing', 'paid', 0, 'HEMAT10', '628123456789']
+        );
+        expect(client.query).toHaveBeenNthCalledWith(
+            4,
+            expect.not.stringContaining('discount_amount'),
+            ['ORD-OLD-SCHEMA', 77, 'VAR-OLD', 1, 10000, 20000, 10000, 'processing', 'paid', 'HEMAT10', '628123456789']
+        );
+        expect(client.query).toHaveBeenNthCalledWith(
+            5,
+            expect.not.stringContaining('discount_amount'),
+            ['ORD-OLD-SCHEMA', 77, 'VAR-OLD', 1, 10000, 20000, 10000, 'processing', 'paid', '628123456789']
+        );
+        expect(result).toMatchObject({
+            order_id: 'ORD-OLD-SCHEMA',
+            our_total: 20000,
+            charge_total: 20000,
+            profit: 10000
+        });
+    });
+
+    test('does not abort checkout when affiliate commission insert fails after order creation', async () => {
+        db.query
+            .mockResolvedValueOnce([[{ original_price: 10000, sell_price: 20000 }], []])
+            .mockResolvedValueOnce([[{ balance: 50000, referred_by: 202 }], []]);
+
+        axios.post.mockResolvedValueOnce({
+            data: {
+                success: true,
+                data: {
+                    order_id: 'ORD-AFF-FAIL',
+                    status: 'processing',
+                    payment_status: 'paid'
+                }
+            }
+        });
+
+        Affiliate.calcDiscount.mockResolvedValueOnce(0);
+        Affiliate.recordCommission.mockRejectedValueOnce(
+            new Error('insert or update on table "affiliate_commissions" violates foreign key constraint')
+        );
+
+        client.query
+            .mockResolvedValueOnce(undefined)
+            .mockResolvedValueOnce({ rowCount: 1 })
+            .mockResolvedValueOnce(undefined)
+            .mockResolvedValueOnce(undefined)
+            .mockResolvedValueOnce(undefined)
+            .mockResolvedValueOnce(undefined)
+            .mockResolvedValueOnce(undefined)
+            .mockResolvedValueOnce(undefined);
+
+        const result = await Order.create({
+            variant_id: 'VAR-AFF-FAIL',
+            quantity: 1,
+            buyer_whatsapp: '628123456789'
+        }, 66);
+
+        expect(client.query).toHaveBeenNthCalledWith(
+            3,
+            expect.stringContaining('INSERT INTO orders'),
+            ['ORD-AFF-FAIL', 66, 'VAR-AFF-FAIL', 1, 10000, 20000, 10000, 'processing', 'paid', 0, null, '628123456789']
+        );
+        expect(client.query).toHaveBeenNthCalledWith(4, 'SAVEPOINT affiliate_commission_sp');
+        expect(client.query).toHaveBeenNthCalledWith(5, 'ROLLBACK TO SAVEPOINT affiliate_commission_sp');
+        expect(client.query).toHaveBeenNthCalledWith(6, 'RELEASE SAVEPOINT affiliate_commission_sp');
+        expect(client.query).toHaveBeenNthCalledWith(
+            7,
+            'INSERT INTO profits (order_id, user_id, amount) VALUES ($1, $2, $3)',
+            ['ORD-AFF-FAIL', 66, 10000]
+        );
+        expect(result).toMatchObject({
+            order_id: 'ORD-AFF-FAIL',
+            commission_amount: 0,
+            profit: 10000,
+            charge_total: 20000
         });
     });
 });

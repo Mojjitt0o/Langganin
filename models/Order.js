@@ -6,47 +6,90 @@ const telegramBot = require('../services/telegramBot');
 require('dotenv').config();
 
 class Order {
+    static getOptionalOrderInsertColumns() {
+        return {
+            discount_amount: orderData => orderData.discountAmount,
+            voucher_code: orderData => orderData.voucherCode,
+            buyer_whatsapp: orderData => orderData.buyerWhatsapp
+        };
+    }
+
+    static buildOrderInsertQuery(orderData, includedOptionalColumns) {
+        const baseColumns = [
+            'order_id',
+            'user_id',
+            'variant_id',
+            'quantity',
+            'original_total',
+            'our_total',
+            'profit',
+            'status',
+            'payment_status'
+        ];
+        const baseValues = [
+            orderData.orderId,
+            orderData.userId,
+            orderData.variantId,
+            orderData.quantity,
+            orderData.originalTotal,
+            orderData.chargeTotal,
+            orderData.profit,
+            orderData.status,
+            orderData.paymentStatus
+        ];
+
+        const optionalColumns = Order.getOptionalOrderInsertColumns();
+        const columns = [...baseColumns];
+        const values = [...baseValues];
+
+        for (const columnName of includedOptionalColumns) {
+            const valueFactory = optionalColumns[columnName];
+            if (!valueFactory) continue;
+            columns.push(columnName);
+            values.push(valueFactory(orderData));
+        }
+
+        const placeholders = values.map((_, index) => `$${index + 1}`).join(', ');
+        return {
+            text: `INSERT INTO orders (${columns.join(', ')}) VALUES (${placeholders})`,
+            values
+        };
+    }
+
+    static getMissingOptionalOrderColumn(err, includedOptionalColumns) {
+        if (err?.code !== '42703') return null;
+
+        const match = String(err.message || '').match(/column "([^"]+)"/i);
+        const missingColumn = match?.[1];
+        if (!missingColumn) return null;
+
+        const optionalColumns = Order.getOptionalOrderInsertColumns();
+        if (!optionalColumns[missingColumn]) return null;
+        if (!includedOptionalColumns.has(missingColumn)) return null;
+
+        return missingColumn;
+    }
+
     static async insertOrderRecord(client, orderData) {
-        const {
-            orderId,
-            userId,
-            variantId,
-            quantity,
-            originalTotal,
-            chargeTotal,
-            discountAmount,
-            profit,
-            status,
-            paymentStatus,
-            voucherCode,
-            buyerWhatsapp
-        } = orderData;
+        const includedOptionalColumns = new Set([
+            'discount_amount',
+            'voucher_code',
+            'buyer_whatsapp'
+        ]);
 
-        try {
-            await client.query(
-                `INSERT INTO orders (order_id, user_id, variant_id, quantity, original_total, our_total, discount_amount, profit, status, payment_status, voucher_code, buyer_whatsapp)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-                [
-                    orderId, userId, variantId, quantity,
-                    originalTotal, chargeTotal, discountAmount, profit,
-                    status, paymentStatus, voucherCode, buyerWhatsapp
-                ]
-            );
-        } catch (err) {
-            const missingDiscountColumn = err?.code === '42703' && String(err.message || '').includes('discount_amount');
-            if (!missingDiscountColumn) throw err;
+        while (true) {
+            const query = Order.buildOrderInsertQuery(orderData, includedOptionalColumns);
 
-            logger.warn('orders.discount_amount column missing, retrying legacy order insert without discount tracking');
+            try {
+                await client.query(query.text, query.values);
+                return;
+            } catch (err) {
+                const missingColumn = Order.getMissingOptionalOrderColumn(err, includedOptionalColumns);
+                if (!missingColumn) throw err;
 
-            await client.query(
-                `INSERT INTO orders (order_id, user_id, variant_id, quantity, original_total, our_total, profit, status, payment_status, voucher_code, buyer_whatsapp)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-                [
-                    orderId, userId, variantId, quantity,
-                    originalTotal, chargeTotal, profit,
-                    status, paymentStatus, voucherCode, buyerWhatsapp
-                ]
-            );
+                includedOptionalColumns.delete(missingColumn);
+                logger.warn(`orders.${missingColumn} column missing, retrying legacy order insert without it`);
+            }
         }
     }
 
@@ -138,24 +181,9 @@ class Order {
                 throw new Error('Saldo tidak cukup atau sudah berubah. Silakan coba lagi.');
             }
 
-            // Record affiliate commission
-            if (userRows[0].referred_by) {
-                try {
-                    const Affiliate = require('./Affiliate');
-                    const commission = await Affiliate.recordCommission(
-                        userRows[0].referred_by,
-                        userId,
-                        apiOrder.order_id,
-                        sellTotal,
-                        client
-                    );
-                    commissionAmount = commission ? parseFloat(commission.commission_amount) : 0;
-                } catch (affErr) {
-                    logger.error('Affiliate commission error: ' + affErr.message);
-                }
-            }
-
-            const profit = chargeTotal - originalTotal - commissionAmount;
+            // Insert the core order first so downstream affiliate rows can safely reference it.
+            const baseProfit = chargeTotal - originalTotal;
+            let profit = baseProfit;
 
             // Insert order
             await Order.insertOrderRecord(client, {
@@ -166,12 +194,48 @@ class Order {
                 originalTotal,
                 chargeTotal,
                 discountAmount,
-                profit,
+                profit: baseProfit,
                 status: apiOrder.status || 'processing',
                 paymentStatus: apiOrder.payment_status || 'paid',
                 voucherCode: voucher_code || null,
                 buyerWhatsapp: buyer_whatsapp || null
             });
+
+            // Affiliate bookkeeping is best-effort and must not be able to abort checkout.
+            // We use a savepoint so failures roll back only affiliate writes, not the order itself.
+            if (userRows[0].referred_by) {
+                await client.query('SAVEPOINT affiliate_commission_sp');
+                try {
+                    const Affiliate = require('./Affiliate');
+                    const commission = await Affiliate.recordCommission(
+                        userRows[0].referred_by,
+                        userId,
+                        apiOrder.order_id,
+                        sellTotal,
+                        client
+                    );
+                    commissionAmount = commission ? parseFloat(commission.commission_amount) : 0;
+                    profit = baseProfit - commissionAmount;
+
+                    if (commissionAmount > 0) {
+                        await client.query(
+                            'UPDATE orders SET profit = $1 WHERE order_id = $2',
+                            [profit, apiOrder.order_id]
+                        );
+                    }
+                } catch (affErr) {
+                    await client.query('ROLLBACK TO SAVEPOINT affiliate_commission_sp');
+                    commissionAmount = 0;
+                    profit = baseProfit;
+                    logger.error('Affiliate commission error: ' + affErr.message);
+                } finally {
+                    try {
+                        await client.query('RELEASE SAVEPOINT affiliate_commission_sp');
+                    } catch (savepointErr) {
+                        logger.warn('Affiliate savepoint release warning: ' + savepointErr.message);
+                    }
+                }
+            }
 
             // Record profit
             if (profit > 0) {
