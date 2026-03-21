@@ -84,6 +84,10 @@ id: {
   prd_sell_price: 'Harga Jual',
   prd_cost_price: 'Harga Modal',
   prd_promo_price: 'Harga Promo',
+  prd_subtotal: 'Subtotal',
+  prd_ref_discount: 'Diskon Referral',
+  prd_total_pay: 'Total Bayar',
+  prd_ref_discount_auto: 'Diskon referral akan diterapkan otomatis saat checkout.',
   prd_login_first: '⚠️ Silakan login terlebih dahulu untuk membeli produk',
 
   // ─── Orders Page ───
@@ -117,6 +121,8 @@ id: {
   ord_detail_wa: 'WhatsApp',
   ord_detail_product: 'Produk',
   ord_detail_qty: 'Jumlah',
+  ord_detail_subtotal: 'Subtotal',
+  ord_detail_discount: 'Diskon Referral',
   ord_detail_total: 'Total Bayar',
   ord_detail_cost: 'Harga Modal',
   ord_detail_profit: 'Profit',
@@ -232,6 +238,7 @@ id: {
   bal_tx_product_digital: 'Produk Digital',
   bal_tx_sell: 'Bayar (sell)',
   bal_tx_cost: 'Modal (WR)',
+  bal_tx_discount: 'Diskon Referral',
   bal_tx_detail_profit: 'Detail profit',
   bal_status_expired: 'Expired',
   bal_status_rejected: 'Ditolak',
@@ -616,6 +623,7 @@ id: {
   // ─── Register — Referral Validation ───
   reg_ref_valid: '✔ Kode valid — diundang oleh <b>{username}</b>',
   reg_ref_discount: '🎁 <b>Kamu dapat diskon {disc}</b> di setiap pembelian!',
+  reg_ref_commission_owner: 'Pemilik kode akan menerima komisi saat kamu melakukan order.',
   reg_ref_checking: 'Memeriksa kode...',
   reg_ref_not_found: 'Kode referral tidak ditemukan',
 
@@ -705,6 +713,10 @@ en: {
   prd_sell_price: 'Sell Price',
   prd_cost_price: 'Cost Price',
   prd_promo_price: 'Promo Price',
+  prd_subtotal: 'Subtotal',
+  prd_ref_discount: 'Referral Discount',
+  prd_total_pay: 'Total Paid',
+  prd_ref_discount_auto: 'Referral discount will be applied automatically at checkout.',
   prd_login_first: '⚠️ Please login first to purchase products',
 
   // ─── Orders Page ───
@@ -738,6 +750,8 @@ en: {
   ord_detail_wa: 'WhatsApp',
   ord_detail_product: 'Product',
   ord_detail_qty: 'Quantity',
+  ord_detail_subtotal: 'Subtotal',
+  ord_detail_discount: 'Referral Discount',
   ord_detail_total: 'Total Paid',
   ord_detail_cost: 'Cost Price',
   ord_detail_profit: 'Profit',
@@ -853,6 +867,7 @@ en: {
   bal_tx_product_digital: 'Digital Product',
   bal_tx_sell: 'Paid (sell)',
   bal_tx_cost: 'Cost (WR)',
+  bal_tx_discount: 'Referral Discount',
   bal_tx_detail_profit: 'Profit detail',
   bal_status_expired: 'Expired',
   bal_status_rejected: 'Rejected',
@@ -1237,6 +1252,7 @@ en: {
   // ─── Register — Referral Validation ───
   reg_ref_valid: '✔ Valid code — invited by <b>{username}</b>',
   reg_ref_discount: '🎁 <b>You get a {disc} discount</b> on every purchase!',
+  reg_ref_commission_owner: 'The code owner receives the affiliate commission when you place an order.',
   reg_ref_checking: 'Checking code...',
   reg_ref_not_found: 'Referral code not found',
 

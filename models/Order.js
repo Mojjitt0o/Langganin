@@ -6,6 +6,50 @@ const telegramBot = require('../services/telegramBot');
 require('dotenv').config();
 
 class Order {
+    static async insertOrderRecord(client, orderData) {
+        const {
+            orderId,
+            userId,
+            variantId,
+            quantity,
+            originalTotal,
+            chargeTotal,
+            discountAmount,
+            profit,
+            status,
+            paymentStatus,
+            voucherCode,
+            buyerWhatsapp
+        } = orderData;
+
+        try {
+            await client.query(
+                `INSERT INTO orders (order_id, user_id, variant_id, quantity, original_total, our_total, discount_amount, profit, status, payment_status, voucher_code, buyer_whatsapp)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+                [
+                    orderId, userId, variantId, quantity,
+                    originalTotal, chargeTotal, discountAmount, profit,
+                    status, paymentStatus, voucherCode, buyerWhatsapp
+                ]
+            );
+        } catch (err) {
+            const missingDiscountColumn = err?.code === '42703' && String(err.message || '').includes('discount_amount');
+            if (!missingDiscountColumn) throw err;
+
+            logger.warn('orders.discount_amount column missing, retrying legacy order insert without discount tracking');
+
+            await client.query(
+                `INSERT INTO orders (order_id, user_id, variant_id, quantity, original_total, our_total, profit, status, payment_status, voucher_code, buyer_whatsapp)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                [
+                    orderId, userId, variantId, quantity,
+                    originalTotal, chargeTotal, profit,
+                    status, paymentStatus, voucherCode, buyerWhatsapp
+                ]
+            );
+        }
+    }
+
     static async create(orderData, userId) {
         const { variant_id, quantity = 1, voucher_code, buyer_whatsapp, email_invite } = orderData;
 
@@ -114,18 +158,20 @@ class Order {
             const profit = chargeTotal - originalTotal - commissionAmount;
 
             // Insert order
-            await client.query(
-                `INSERT INTO orders (order_id, user_id, variant_id, quantity, original_total, our_total, profit, status, payment_status, voucher_code, buyer_whatsapp)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-                [
-                    apiOrder.order_id, userId, variant_id, quantity,
-                    originalTotal, sellTotal, profit,
-                    apiOrder.status         || 'processing',
-                    apiOrder.payment_status || 'paid',
-                    voucher_code   || null,
-                    buyer_whatsapp || null
-                ]
-            );
+            await Order.insertOrderRecord(client, {
+                orderId: apiOrder.order_id,
+                userId,
+                variantId: variant_id,
+                quantity,
+                originalTotal,
+                chargeTotal,
+                discountAmount,
+                profit,
+                status: apiOrder.status || 'processing',
+                paymentStatus: apiOrder.payment_status || 'paid',
+                voucherCode: voucher_code || null,
+                buyerWhatsapp: buyer_whatsapp || null
+            });
 
             // Record profit
             if (profit > 0) {
@@ -141,7 +187,8 @@ class Order {
             const result = {
                 ...apiOrder,
                 original_total:    originalTotal,
-                our_total:         sellTotal,
+                sell_total:        sellTotal,
+                our_total:         chargeTotal,
                 charge_total:      chargeTotal,
                 discount_amount:   discountAmount,
                 commission_amount: commissionAmount,

@@ -727,6 +727,7 @@
   }
 
   function createOrderRecord(order) {
+    const discountAmount = Number(order.discount_amount || 0);
     return {
       txType: 'order',
       status: order.status,
@@ -737,9 +738,10 @@
       variant_name: order.variant_name || '',
       order_id: order.order_id,
       original_total: Number(order.original_total || 0),
+      discount_amount: discountAmount,
       meta: order.buyer_whatsapp ? `WA ${order.buyer_whatsapp}` : '',
       profit: Number(order.profit || 0),
-      notes: ''
+      notes: discountAmount > 0 ? `${t('bal_tx_discount')}: Rp ${discountAmount.toLocaleString('id-ID')}` : ''
     };
   }
 
@@ -867,6 +869,7 @@
 
         const profitVal = Number(record.profit || 0);
         const modalVal = Number(record.original_total || 0);
+        const discountVal = Number(record.discount_amount || 0);
         const showAdminRows = isAdmin && !isWithdrawal;
         const adminRows = showAdminRows ? `
           <div class="tx-profit-bar">
@@ -874,6 +877,11 @@
               <span class="tx-profit-lbl">${t('bal_tx_sell')}</span>
               <span class="tx-profit-val">Rp ${amt.toLocaleString('id-ID')}</span>
             </div>
+            ${discountVal > 0 ? `
+            <div class="tx-profit-item">
+              <span class="tx-profit-lbl">${t('bal_tx_discount')}</span>
+              <span class="tx-profit-val" style="color:#a855f7;">-Rp ${discountVal.toLocaleString('id-ID')}</span>
+            </div>` : ''}
             <div class="tx-profit-item">
               <span class="tx-profit-lbl">${t('bal_tx_cost')}</span>
               <span class="tx-profit-val muted">Rp ${modalVal.toLocaleString('id-ID')}</span>

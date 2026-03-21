@@ -9,7 +9,7 @@ const telegramBot = require('../services/telegramBot');
 const orderController = {
     async createOrder(req, res) {
         try {
-            const { variant_id, quantity, voucher_code, email_invite } = req.body;
+            const { variant_id, quantity, voucher_code, email_invite, buyer_whatsapp } = req.body;
             const userId = req.userId;
 
             // Input validation - variant_id must be provided
@@ -33,7 +33,7 @@ const orderController = {
                 return res.status(400).json({ success: false, message: 'Email invite tidak valid' });
             }
 
-            const order = await Order.create({ variant_id, quantity: qty, voucher_code, email_invite }, userId);
+            const order = await Order.create({ variant_id, quantity: qty, voucher_code, email_invite, buyer_whatsapp }, userId);
 
             // Notify admin via Telegram about new order
             telegramBot.logEvent(

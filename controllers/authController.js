@@ -17,6 +17,7 @@ const authController = {
     async register(req, res) {
         try {
             const { username, email, password, whatsapp, ref } = req.body;
+            const normalizedRef = ref ? String(ref).trim().toUpperCase() : '';
 
             // Check if user exists
             const existingUser = await User.findByEmail(email);
@@ -38,10 +39,10 @@ const authController = {
             const userId = await User.create({ username, email, password, whatsapp: wa });
 
             // Handle affiliate referral
-            if (ref) {
+            if (normalizedRef) {
                 try {
                     const Affiliate = require('../models/Affiliate');
-                    const referrer = await Affiliate.findByCode(String(ref).trim());
+                    const referrer = await Affiliate.findByCode(normalizedRef);
                     if (referrer && referrer.id !== userId) {
                         await Affiliate.setReferrer(userId, referrer.id);
                     }
@@ -68,7 +69,7 @@ const authController = {
             telegramBot.logEvent(
               'New User Registered',
               `User ID: ${userId}\nUsername: ${username}\nEmail: ${email}` +
-              (ref ? `\nReferred by: ${ref}` : '')
+              (normalizedRef ? `\nReferred by: ${normalizedRef}` : '')
             );
         } catch (error) {
             logger.error('Register error: ' + error.message);

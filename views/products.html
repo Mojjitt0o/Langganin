@@ -107,9 +107,10 @@
   let currentVariant = null;
   let isAdmin        = false;
   let currentUser    = null;
+  let referralSettings = null;
 
   // ── Init ──
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     if (userData) {
       // Show logged-in nav items
       document.getElementById('navOrders').style.display = '';
@@ -119,7 +120,7 @@
       document.getElementById('navLogout').style.display = '';
       document.getElementById('navLogin').style.display = 'none';
       document.getElementById('navReg').style.display = 'none';
-      loadProfile();
+      await Promise.all([loadProfile(), loadReferralSettings()]);
     } else {
       // Show login/register, hide logged-in items
       document.getElementById('navAdmin').style.display = 'none';
@@ -168,6 +169,66 @@
       console.error('Failed to load profile:', err);
       // Don't force logout, just log the error
     }
+  }
+
+  async function loadReferralSettings() {
+    try {
+      const r = await fetch('/api/affiliate/settings', { credentials: 'include' });
+      const d = await r.json();
+      if (d.success) referralSettings = d.data;
+    } catch (err) {
+      console.error('Failed to load affiliate settings:', err);
+    }
+  }
+
+  function calcReferralDiscount(total) {
+    if (!currentUser?.referred_by) return 0;
+    if (!referralSettings?.is_active) return 0;
+
+    const val = parseFloat(referralSettings?.referral_discount_value || 0);
+    if (val <= 0) return 0;
+
+    if (referralSettings.referral_discount_type === 'fixed') {
+      return Math.min(val, total);
+    }
+
+    return Math.round((total * val / 100) * 100) / 100;
+  }
+
+  function updateOrderSummary() {
+    if (!currentVariant) return;
+
+    const qtyInput = document.getElementById('qty');
+    const summaryEl = document.getElementById('orderPriceSummary');
+    if (!qtyInput || !summaryEl) return;
+
+    const qty = Math.max(1, parseInt(qtyInput.value, 10) || 1);
+    qtyInput.value = qty;
+
+    const subtotal = Number(currentVariant.price || 0) * qty;
+    const discount = calcReferralDiscount(subtotal);
+    const total = subtotal - discount;
+    const hasReferralDiscount = discount > 0;
+
+    summaryEl.innerHTML = `
+      <div style="background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:12px; padding:0.9rem 1rem; margin-bottom:1rem;">
+        <div style="display:flex; justify-content:space-between; gap:1rem; font-size:0.85rem; margin-bottom:0.45rem;">
+          <span style="color:var(--muted);">${t('prd_subtotal')}</span>
+          <strong>Rp ${subtotal.toLocaleString('id-ID')}</strong>
+        </div>
+        ${hasReferralDiscount ? `
+          <div style="display:flex; justify-content:space-between; gap:1rem; font-size:0.85rem; margin-bottom:0.45rem;">
+            <span style="color:#a855f7;">${t('prd_ref_discount')}</span>
+            <strong style="color:#a855f7;">-Rp ${discount.toLocaleString('id-ID')}</strong>
+          </div>
+        ` : ''}
+        <div style="display:flex; justify-content:space-between; gap:1rem; font-size:0.98rem; padding-top:0.55rem; border-top:1px solid var(--border);">
+          <span style="font-weight:700;">${t('prd_total_pay')}</span>
+          <strong style="color:var(--blue); font-size:1.05rem;">Rp ${total.toLocaleString('id-ID')}</strong>
+        </div>
+        ${hasReferralDiscount ? `<div style="font-size:0.75rem; color:#a855f7; margin-top:0.55rem;">${t('prd_ref_discount_auto')}</div>` : ''}
+      </div>
+    `;
   }
 
   // ── Load products ──
@@ -345,8 +406,9 @@
       </div>
       <div class="form-group">
         <label class="form-label">${t('prd_qty')}</label>
-        <input type="number" class="form-input" id="qty" value="1" min="1" max="50" />
+        <input type="number" class="form-input" id="qty" value="1" min="1" max="50" oninput="updateOrderSummary()" />
       </div>
+      <div id="orderPriceSummary"></div>
       <div class="form-group">
         <label class="form-label">${t('prd_whatsapp')}</label>
         <input type="text" class="form-input" id="whatsappNumber" placeholder="${t('prd_whatsapp_ph')}" value="${currentUser && currentUser.whatsapp ? esc(currentUser.whatsapp) : ''}" required />
@@ -366,6 +428,7 @@
         <button class="btn btn-secondary btn-full" onclick="closeOrderModal()">${t('btn_cancel')}</button>
         <button class="btn btn-primary btn-full" id="confirmBtn" onclick="submitOrder()">${t('prd_btn_confirm')}</button>
       </div>`;
+    updateOrderSummary();
     document.getElementById('orderModal').classList.add('active');
   }
 

@@ -303,6 +303,23 @@
     setTimeout(poll, ordersNeedingDetails[0] ? pollState.get(ordersNeedingDetails[0].order_id).initialDelay : 0);
   }
 
+  function getOrderDiscount(order) {
+    return Number(order.discount_amount || 0);
+  }
+
+  function getOrderSubtotal(order) {
+    return Number(order.our_total || 0) + getOrderDiscount(order);
+  }
+
+  function renderOrderTotal(order) {
+    const total = Number(order.our_total || 0);
+    const discount = getOrderDiscount(order);
+    return `
+      <div style="font-weight:700; color:var(--blue);">Rp ${total.toLocaleString('id-ID')}</div>
+      ${discount > 0 ? `<div style="font-size:0.72rem; color:#a855f7; margin-top:2px;">${t('ord_detail_discount')}: -Rp ${discount.toLocaleString('id-ID')}</div>` : ''}
+    `;
+  }
+
   function renderStats(orders) {
     const success = orders.filter(o => ['success','completed','done'].includes(o.status)).length;
     const pending = orders.filter(o => ['processing','pending'].includes(o.status)).length;
@@ -351,7 +368,7 @@
           ${isAdmin ? `<div style="color:var(--muted);font-size:0.74rem;margin-top:2px;">👤 ${esc(o.username || '—')}</div>` : ''}
         </td>
         <td style="text-align:center;">${o.quantity}</td>
-        <td style="font-weight:700; color:var(--blue);">Rp ${Number(o.our_total || 0).toLocaleString('id-ID')}</td>
+        <td>${renderOrderTotal(o)}</td>
         <td style="${isAdmin ? '' : 'display:none;'}">
           <span style="color:var(--green); font-weight:700;">+Rp ${profit.toLocaleString('id-ID')}</span>
         </td>
@@ -403,7 +420,7 @@
         </div>
         <div class="order-card-row">
           <span class="label">${t('ord_total')}</span>
-          <span class="value" style="color:var(--blue);">Rp ${Number(o.our_total || 0).toLocaleString('id-ID')}</span>
+          <div class="value" style="color:var(--blue); text-align:right;">${renderOrderTotal(o)}</div>
         </div>
         ${isAdmin ? `<div class="order-card-row"><span class="label">Profit</span><span class="value" style="color:var(--green);">+Rp ${parseFloat(o.profit || 0).toLocaleString('id-ID')}</span></div>` : ''}
         <div class="order-card-row">
@@ -494,6 +511,7 @@ ${t('ord_wa_thanks')}`;
     const o = allOrders.find(x => x.order_id === orderId);
     if (!o) return;
     const profit = parseFloat(o.profit || 0);
+    const discountAmount = getOrderDiscount(o);
     const isDone = ['done','completed','success'].includes(o.status);
     const isProcessing = ['processing','pending'].includes(o.status);
     const hasAccount = !!o.account_details;
@@ -536,6 +554,8 @@ ${t('ord_wa_thanks')}`;
         ${(isAdmin && o.whatsapp) ? row(t('ord_detail_wa'), `<span style="font-family:monospace;">+${esc(o.whatsapp)}</span>`) : ''}
         ${row(t('ord_detail_product'), esc(o.product_name || '—') + ' — ' + esc(o.variant_name || ''))}
         ${row(t('ord_detail_qty'), o.quantity)}
+        ${discountAmount > 0 ? row(t('ord_detail_subtotal'), 'Rp ' + getOrderSubtotal(o).toLocaleString('id-ID')) : ''}
+        ${discountAmount > 0 ? row(t('ord_detail_discount'), '<strong style="color:#a855f7;">-Rp ' + discountAmount.toLocaleString('id-ID') + '</strong>') : ''}
         ${row(t('ord_detail_total'), '<strong style="color:var(--blue)">Rp ' + Number(o.our_total || 0).toLocaleString('id-ID') + '</strong>')}
         ${isAdmin ? row(t('ord_detail_cost'), 'Rp ' + Number(o.original_total || 0).toLocaleString('id-ID')) : ''}
         ${isAdmin ? row(t('ord_detail_profit'), '<strong style="color:var(--green)">+Rp ' + profit.toLocaleString('id-ID') + '</strong>') : ''}

@@ -3,6 +3,12 @@ const db = require('../config/database');
 const crypto = require('crypto');
 
 class Affiliate {
+    static async runQuery(executor, text, params) {
+        const result = await executor.query(text, params);
+        if (Array.isArray(result)) return result;
+        return [result.rows || [], result.fields || []];
+    }
+
     // ─── Generate unique affiliate code ───
     static generateCode(username) {
         const suffix = crypto.randomBytes(3).toString('hex').toUpperCase();
@@ -32,8 +38,8 @@ class Affiliate {
     }
 
     // ─── Get affiliate settings ───
-    static async getSettings() {
-        const [rows] = await db.query('SELECT * FROM affiliate_settings WHERE id = 1');
+    static async getSettings(executor = db) {
+        const [rows] = await this.runQuery(executor, 'SELECT * FROM affiliate_settings WHERE id = 1');
         return rows[0] || { commission_type: 'percentage', commission_value: 5, min_withdrawal: 10000, cookie_days: 30, is_active: true, referral_discount_type: 'percentage', referral_discount_value: 0 };
     }
 
@@ -55,9 +61,12 @@ class Affiliate {
 
     // ─── Find user by affiliate code ───
     static async findByCode(code) {
+        const normalizedCode = String(code || '').trim().toUpperCase();
+        if (!normalizedCode) return null;
+
         const [rows] = await db.query(
             'SELECT id, username, affiliate_code FROM users WHERE affiliate_code = $1',
-            [code]
+            [normalizedCode]
         );
         return rows[0] || null;
     }
@@ -83,8 +92,10 @@ class Affiliate {
     }
 
     // ─── Record commission from an order ───
-    static async recordCommission(affiliateUserId, referredUserId, orderId, orderAmount) {
-        const settings = await this.getSettings();
+    static async recordCommission(affiliateUserId, referredUserId, orderId, orderAmount, executor = db) {
+        if (!affiliateUserId || affiliateUserId === referredUserId) return null;
+
+        const settings = await this.getSettings(executor);
         if (!settings.is_active) return null;
 
         let commissionAmount;
@@ -98,14 +109,16 @@ class Affiliate {
 
         if (commissionAmount <= 0) return null;
 
-        const [rows] = await db.query(
+        const [rows] = await this.runQuery(
+            executor,
             `INSERT INTO affiliate_commissions (affiliate_user_id, referred_user_id, order_id, order_amount, commission_amount, status)
              VALUES ($1, $2, $3, $4, $5, 'approved') RETURNING *`,
             [affiliateUserId, referredUserId, orderId, orderAmount, commissionAmount]
         );
 
         // Add to affiliate balance
-        await db.query(
+        await this.runQuery(
+            executor,
             'UPDATE users SET affiliate_balance = affiliate_balance + $1 WHERE id = $2',
             [commissionAmount, affiliateUserId]
         );

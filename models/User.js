@@ -33,7 +33,7 @@ class User {
 
     static async findById(id) {
         const [rows] = await db.query(
-            'SELECT id, username, email, balance, is_admin, whatsapp, created_at FROM users WHERE id = $1',
+            'SELECT id, username, email, balance, is_admin, whatsapp, referred_by, created_at FROM users WHERE id = $1',
             [id]
         );
         return rows[0];

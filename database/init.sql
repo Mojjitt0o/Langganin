@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS orders (
     quantity INT DEFAULT 1,
     original_total DECIMAL(15,2),
     our_total DECIMAL(15,2),
+    discount_amount DECIMAL(15,2) DEFAULT 0,
     profit DECIMAL(15,2),
     status VARCHAR(50) DEFAULT 'processing',
     payment_status VARCHAR(50) DEFAULT 'pending',
@@ -120,6 +121,12 @@ CREATE TABLE IF NOT EXISTS orders (
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='orders' AND column_name='buyer_whatsapp') THEN
         ALTER TABLE orders ADD COLUMN buyer_whatsapp VARCHAR(20);
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='orders' AND column_name='discount_amount') THEN
+        ALTER TABLE orders ADD COLUMN discount_amount DECIMAL(15,2) DEFAULT 0;
     END IF;
 END $$;
 

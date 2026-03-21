@@ -105,6 +105,7 @@
               : 'Rp ' + Number(discountValue).toLocaleString('id-ID');
           msg += ' ' + t('reg_ref_discount').replace('{disc}', disc);
       }
+      msg += ' ' + t('reg_ref_commission_owner');
       return msg;
   }
 
